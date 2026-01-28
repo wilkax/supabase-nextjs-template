@@ -4,8 +4,7 @@ import * as Localization from 'expo-localization'
 import { storage } from './storage'
 
 import en from '../locales/en.json'
-import pl from '../locales/pl.json'
-import zh from '../locales/zh.json'
+import de from '../locales/de.json'
 
 const deviceLanguage = Localization.locale?.split('-')[0] || 'en'
 
@@ -13,8 +12,7 @@ i18n.use(initReactI18next).init({
   compatibilityJSON: 'v3',
   resources: {
     en: { translation: en },
-    pl: { translation: pl },
-    zh: { translation: zh },
+    de: { translation: de },
   },
   lng: deviceLanguage,
   fallbackLng: 'en',

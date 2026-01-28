@@ -166,30 +166,15 @@ export default function LoginScreen() {
             <TouchableOpacity
               style={[
                 styles.languageOption,
-                i18n.language === 'pl' && { backgroundColor: colors.tint }
+                i18n.language === 'de' && { backgroundColor: colors.tint }
               ]}
-              onPress={() => handleChangeLanguage('pl')}
+              onPress={() => handleChangeLanguage('de')}
             >
               <Text style={[
                 styles.languageOptionText,
-                { color: i18n.language === 'pl' ? '#fff' : colors.text }
+                { color: i18n.language === 'de' ? '#fff' : colors.text }
               ]}>
-                {t('settings.languages.polish')}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.languageOption,
-                i18n.language === 'zh' && { backgroundColor: colors.tint }
-              ]}
-              onPress={() => handleChangeLanguage('zh')}
-            >
-              <Text style={[
-                styles.languageOptionText,
-                { color: i18n.language === 'zh' ? '#fff' : colors.text }
-              ]}>
-                {t('settings.languages.chinese')}
+                {t('settings.languages.german')}
               </Text>
             </TouchableOpacity>
           </View>

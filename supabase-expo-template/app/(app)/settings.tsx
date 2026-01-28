@@ -191,10 +191,8 @@ export default function SettingsScreen() {
                     {t('settings.language')}
                   </Text>
                   <Text style={[styles.settingSubtext, { color: colors.icon }]}>
-                    {i18n.language === 'pl' 
-                      ? t('settings.languages.polish')
-                      : i18n.language === 'zh'
-                      ? t('settings.languages.chinese')
+                    {i18n.language === 'de'
+                      ? t('settings.languages.german')
                       : t('settings.languages.english')
                     }
                   </Text>
@@ -327,30 +325,15 @@ export default function SettingsScreen() {
             <TouchableOpacity
               style={[
                 styles.languageOption,
-                i18n.language === 'pl' && { backgroundColor: colors.tint }
+                i18n.language === 'de' && { backgroundColor: colors.tint }
               ]}
-              onPress={() => handleChangeLanguage('pl')}
+              onPress={() => handleChangeLanguage('de')}
             >
               <Text style={[
                 styles.languageText,
-                { color: i18n.language === 'pl' ? '#fff' : colors.text }
+                { color: i18n.language === 'de' ? '#fff' : colors.text }
               ]}>
-                {t('settings.languages.polish')}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.languageOption,
-                i18n.language === 'zh' && { backgroundColor: colors.tint }
-              ]}
-              onPress={() => handleChangeLanguage('zh')}
-            >
-              <Text style={[
-                styles.languageText,
-                { color: i18n.language === 'zh' ? '#fff' : colors.text }
-              ]}>
-                {t('settings.languages.chinese')}
+                {t('settings.languages.german')}
               </Text>
             </TouchableOpacity>
           </View>

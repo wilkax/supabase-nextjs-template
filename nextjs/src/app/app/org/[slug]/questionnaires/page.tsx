@@ -3,28 +3,29 @@
 import { useEffect, useState, useCallback } from 'react'
 import { createSPASassClient } from '@/lib/supabase/client'
 import { Tables } from '@/lib/types'
-import { Plus, Calendar, Users } from 'lucide-react'
-import { useParams } from 'next/navigation'
+import { Plus, Calendar, Users, Eye } from 'lucide-react'
+import { useParams, useRouter } from 'next/navigation'
 
 type Organization = Tables<'organizations'>
 type Questionnaire = Tables<'questionnaires'>
 type Approach = Tables<'approaches'>
-type ApproachTemplate = Tables<'approach_questionnaire_templates'>
+type ApproachQuestionnaire = Tables<'approach_questionnaires'>
 
-interface ApproachWithTemplates extends Approach {
-  templates: ApproachTemplate[]
+interface ApproachWithQuestionnaire extends Approach {
+  questionnaire: ApproachQuestionnaire | null
 }
 
 export default function QuestionnairesPage() {
   const params = useParams()
+  const router = useRouter()
   const slug = params.slug as string
 
   const [org, setOrg] = useState<Organization | null>(null)
   const [questionnaires, setQuestionnaires] = useState<Questionnaire[]>([])
-  const [approaches, setApproaches] = useState<ApproachWithTemplates[]>([])
+  const [approaches, setApproaches] = useState<ApproachWithQuestionnaire[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateForm, setShowCreateForm] = useState(false)
-  const [selectedTemplate, setSelectedTemplate] = useState<ApproachTemplate | null>(null)
+  const [selectedApproach, setSelectedApproach] = useState<ApproachWithQuestionnaire | null>(null)
   const [newQuestionnaire, setNewQuestionnaire] = useState({
     title: '',
     description: '',
@@ -58,7 +59,7 @@ export default function QuestionnairesPage() {
         setQuestionnaires(questionnairesData)
       }
 
-      // Get assigned approaches with templates
+      // Get assigned approaches with questionnaires
       const { data: orgApproaches } = await supabase
         .from('organization_approaches')
         .select('approach_id')
@@ -74,23 +75,23 @@ export default function QuestionnairesPage() {
           .eq('is_active', true)
 
         if (approachesData) {
-          // Load templates for each approach
-          const approachesWithTemplates = await Promise.all(
+          // Load questionnaire for each approach (1-to-1 relationship)
+          const approachesWithQuestionnaires = await Promise.all(
             approachesData.map(async (approach) => {
-              const { data: templates } = await supabase
-                .from('approach_questionnaire_templates')
+              const { data: questionnaire } = await supabase
+                .from('approach_questionnaires')
                 .select('*')
                 .eq('approach_id', approach.id)
-                .order('order', { ascending: true })
+                .maybeSingle()
 
               return {
                 ...approach,
-                templates: templates || []
+                questionnaire: questionnaire || null
               }
             })
           )
 
-          setApproaches(approachesWithTemplates)
+          setApproaches(approachesWithQuestionnaires)
         }
       }
     }
@@ -104,7 +105,7 @@ export default function QuestionnairesPage() {
 
   async function createQuestionnaire(e: React.FormEvent) {
     e.preventDefault()
-    if (!org || !selectedTemplate) return
+    if (!org || !selectedApproach || !selectedApproach.questionnaire) return
 
     const supabaseWrapper = await createSPASassClient()
     const supabase = supabaseWrapper.getSupabaseClient()
@@ -113,10 +114,10 @@ export default function QuestionnairesPage() {
       .from('questionnaires')
       .insert([{
         organization_id: org.id,
-        template_id: selectedTemplate.id,
+        approach_questionnaire_id: selectedApproach.questionnaire.id,
         title: newQuestionnaire.title,
         description: newQuestionnaire.description || null,
-        schema: selectedTemplate.schema,
+        schema: selectedApproach.questionnaire.schema,
         is_anonymous: newQuestionnaire.is_anonymous,
         start_date: newQuestionnaire.start_date || null,
         end_date: newQuestionnaire.end_date || null,
@@ -125,7 +126,7 @@ export default function QuestionnairesPage() {
 
     if (!error) {
       setShowCreateForm(false)
-      setSelectedTemplate(null)
+      setSelectedApproach(null)
       setNewQuestionnaire({
         title: '',
         description: '',
@@ -167,33 +168,31 @@ export default function QuestionnairesPage() {
                 {approach.description && (
                   <p className="mt-2 text-sm text-gray-600">{approach.description}</p>
                 )}
+                {approach.category && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 mt-2">
+                    {approach.category}
+                  </span>
+                )}
                 <div className="mt-4">
-                  <p className="text-sm font-medium text-gray-700 mb-2">
-                    {approach.templates.length} template{approach.templates.length !== 1 ? 's' : ''}
-                  </p>
-                  {approach.templates.length > 0 && (
-                    <div className="space-y-2">
-                      {approach.templates.map((template) => (
-                        <button
-                          key={template.id}
-                          onClick={() => {
-                            setSelectedTemplate(template)
-                            setNewQuestionnaire({
-                              ...newQuestionnaire,
-                              title: template.title,
-                              description: template.description || '',
-                            })
-                            setShowCreateForm(true)
-                          }}
-                          className="w-full text-left px-3 py-2 text-sm bg-gray-50 hover:bg-gray-100 rounded-md"
-                        >
-                          <div className="font-medium text-gray-900">{template.title}</div>
-                          {template.description && (
-                            <div className="text-gray-600 text-xs mt-1">{template.description}</div>
-                          )}
-                        </button>
-                      ))}
-                    </div>
+                  {approach.questionnaire ? (
+                    <button
+                      onClick={() => {
+                        setSelectedApproach(approach)
+                        setNewQuestionnaire({
+                          ...newQuestionnaire,
+                          title: approach.questionnaire!.title,
+                          description: approach.questionnaire!.description || '',
+                        })
+                        setShowCreateForm(true)
+                      }}
+                      className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                    >
+                      Create from this approach
+                    </button>
+                  ) : (
+                    <p className="text-sm text-gray-500 italic">
+                      No questionnaire available for this approach yet
+                    </p>
                   )}
                 </div>
               </div>
@@ -203,12 +202,15 @@ export default function QuestionnairesPage() {
       )}
 
       {/* Create Questionnaire Form Modal */}
-      {showCreateForm && selectedTemplate && (
+      {showCreateForm && selectedApproach && selectedApproach.questionnaire && (
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-medium mb-4">Create Questionnaire from Template</h2>
+            <h2 className="text-lg font-medium mb-4">Create Questionnaire from Approach</h2>
             <p className="text-sm text-gray-600 mb-4">
-              Template: <span className="font-medium">{selectedTemplate.title}</span>
+              Approach: <span className="font-medium">{selectedApproach.name}</span>
+            </p>
+            <p className="text-sm text-gray-600 mb-4">
+              Questionnaire: <span className="font-medium">{selectedApproach.questionnaire.title}</span>
             </p>
             <form onSubmit={createQuestionnaire} className="space-y-4">
               <div>
@@ -267,7 +269,7 @@ export default function QuestionnairesPage() {
                   type="button"
                   onClick={() => {
                     setShowCreateForm(false)
-                    setSelectedTemplate(null)
+                    setSelectedApproach(null)
                   }}
                   className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
                 >
@@ -337,10 +339,11 @@ export default function QuestionnairesPage() {
                     </div>
                     <div className="ml-4">
                       <button
-                        disabled
-                        className="text-sm text-blue-600 hover:text-blue-500 disabled:opacity-50"
+                        onClick={() => router.push(`/app/org/${slug}/questionnaires/${q.id}`)}
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-500 hover:bg-blue-50 rounded-md transition-colors"
                       >
-                        Manage
+                        <Eye className="h-4 w-4" />
+                        View
                       </button>
                     </div>
                   </div>

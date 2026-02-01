@@ -37,14 +37,13 @@ export type Database = {
   }
   public: {
     Tables: {
-      approach_questionnaire_templates: {
+      approach_questionnaires: {
         Row: {
           id: string
           approach_id: string
           title: string
           description: string | null
           schema: Json
-          order: number
           created_at: string
           updated_at: string
         }
@@ -54,7 +53,6 @@ export type Database = {
           title: string
           description?: string | null
           schema?: Json
-          order?: number
           created_at?: string
           updated_at?: string
         }
@@ -64,7 +62,48 @@ export type Database = {
           title?: string
           description?: string | null
           schema?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      approach_report_templates: {
+        Row: {
+          id: string
+          approach_id: string
+          name: string
+          slug: string
+          description: string | null
+          type: string
+          config: Json
+          order: number
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          approach_id: string
+          name: string
+          slug: string
+          description?: string | null
+          type?: string
+          config?: Json
           order?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          approach_id?: string
+          name?: string
+          slug?: string
+          description?: string | null
+          type?: string
+          config?: Json
+          order?: number
+          is_active?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -288,7 +327,7 @@ export type Database = {
           description: string | null
           schema: Json
           status: Database['public']['Enums']['questionnaire_status']
-          template_id: string | null
+          approach_questionnaire_id: string | null
           is_anonymous: boolean
           start_date: string | null
           end_date: string | null
@@ -304,7 +343,7 @@ export type Database = {
           description?: string | null
           schema?: Json
           status?: Database['public']['Enums']['questionnaire_status']
-          template_id?: string | null
+          approach_questionnaire_id?: string | null
           is_anonymous?: boolean
           start_date?: string | null
           end_date?: string | null
@@ -320,7 +359,7 @@ export type Database = {
           description?: string | null
           schema?: Json
           status?: Database['public']['Enums']['questionnaire_status']
-          template_id?: string | null
+          approach_questionnaire_id?: string | null
           is_anonymous?: boolean
           start_date?: string | null
           end_date?: string | null

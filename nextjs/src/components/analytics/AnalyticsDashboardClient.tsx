@@ -90,7 +90,7 @@ export function AnalyticsDashboardClient({ organization, questionnaires, approac
     if (selectedQuestionnaire) {
       const questionnaire = questionnaires.find(q => q.id === selectedQuestionnaire);
       if (questionnaire && questionnaire.schema) {
-        const schema = questionnaire.schema as QuestionnaireSchema;
+        const schema = questionnaire.schema as unknown as QuestionnaireSchema;
         setSections(schema.sections || []);
         setSelectedSections([]);
         setSelectedQuestions([]);

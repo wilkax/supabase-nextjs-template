@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { StatisticalCalculator } from '@/lib/reports/core/StatisticalCalculator';
+import { Tables } from '@/lib/types';
 
 interface AggregateRequest {
   questionnaireId: string;
@@ -63,7 +64,9 @@ export async function POST(
       );
     }
 
-    const schema = questionnaire.schema as QuestionnaireSchema;
+    // Type assertion for questionnaire
+    const typedQuestionnaire = questionnaire as Pick<Tables<'questionnaires'>, 'schema' | 'organization_id' | 'title'>;
+    const schema = typedQuestionnaire.schema as unknown as QuestionnaireSchema;
 
     // Fetch all responses for this questionnaire
     const { data: responses, error: rError } = await supabase
@@ -78,7 +81,10 @@ export async function POST(
       );
     }
 
-    if (!responses || responses.length === 0) {
+    // Type assertion for responses
+    const typedResponses = (responses || []) as Tables<'questionnaire_responses'>[];
+
+    if (typedResponses.length === 0) {
       return NextResponse.json({
         questions: {},
         responseCount: 0,
@@ -104,7 +110,7 @@ export async function POST(
 
       // Extract values for this question from all responses
       const values: number[] = [];
-      responses.forEach(response => {
+      typedResponses.forEach(response => {
         const answers = response.answers as Record<string, any>;
         const value = answers[questionId];
         if (value !== null && value !== undefined && typeof value === 'number') {
@@ -147,8 +153,8 @@ export async function POST(
 
     return NextResponse.json({
       questions: aggregatedQuestions,
-      responseCount: responses.length,
-      questionnaireTitle: questionnaire.title
+      responseCount: typedResponses.length,
+      questionnaireTitle: typedQuestionnaire.title
     });
 
   } catch (error) {

@@ -2,6 +2,7 @@
 
 import { createSSRClient } from '@/lib/supabase/server'
 import { canManageOrg } from '@/lib/auth/roles'
+import { Tables } from '@/lib/types'
 
 /**
  * Generate an anonymous invitation link for a questionnaire
@@ -39,8 +40,11 @@ export async function generateAnonymousInviteLink(
       }
     }
 
+    // Type assertion for questionnaire
+    const typedQuestionnaire = questionnaire as Tables<'questionnaires'>
+
     // Check if questionnaire is anonymous
-    if (!questionnaire.is_anonymous) {
+    if (!typedQuestionnaire.is_anonymous) {
       return {
         success: false,
         error: 'This questionnaire is not configured for anonymous responses',
@@ -48,7 +52,7 @@ export async function generateAnonymousInviteLink(
     }
 
     // Create a generic anonymous participant for this questionnaire
-    const { data: participant, error: pError } = await supabase
+    const { data: participant, error: pError } = await (supabase as any)
       .from('participants')
       .insert({
         organization_id: organizationId,
@@ -66,6 +70,9 @@ export async function generateAnonymousInviteLink(
       }
     }
 
+    // Type assertion for participant
+    const typedParticipant = participant as Tables<'participants'>
+
     // Generate a secure token
     const tokenBytes = new Uint8Array(32)
     crypto.getRandomValues(tokenBytes)
@@ -74,14 +81,14 @@ export async function generateAnonymousInviteLink(
       .join('')
 
     // Create access token with expiration based on questionnaire end_date
-    const expiresAt = questionnaire.end_date
-      ? new Date(questionnaire.end_date)
+    const expiresAt = typedQuestionnaire.end_date
+      ? new Date(typedQuestionnaire.end_date)
       : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) // 90 days default
 
-    const { error: tokenError } = await supabase
+    const { error: tokenError } = await (supabase as any)
       .from('participant_access_tokens')
       .insert({
-        participant_id: participant.id,
+        participant_id: typedParticipant.id,
         questionnaire_id: questionnaireId,
         token: token,
         expires_at: expiresAt.toISOString(),
@@ -133,7 +140,7 @@ export async function updateQuestionnaireDates(
     }
 
     // Update the questionnaire
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('questionnaires')
       .update({
         start_date: startDate,

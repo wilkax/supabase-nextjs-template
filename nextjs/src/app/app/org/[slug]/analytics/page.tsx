@@ -7,6 +7,7 @@
 import { createSSRClient } from '@/lib/supabase/server';
 import { notFound, redirect } from 'next/navigation';
 import { AnalyticsDashboardClient } from '@/components/analytics/AnalyticsDashboardClient';
+import { Tables } from '@/lib/types';
 
 interface PageProps {
   params: Promise<{
@@ -57,9 +58,15 @@ export default async function AnalyticsPage({ params }: PageProps) {
     .select('id, name, slug')
     .order('name');
 
+  // Type assertion for questionnaires
+  type QuestionnaireWithSchema = Pick<Tables<'questionnaires'>, 'id' | 'title' | 'status' | 'schema' | 'created_at'> & {
+    approach_questionnaire_id: string | null;
+  };
+  const typedQuestionnaires = (questionnaires || []) as QuestionnaireWithSchema[];
+
   // For each questionnaire, get response count
   const questionnairesWithStats = await Promise.all(
-    (questionnaires || []).map(async (q) => {
+    typedQuestionnaires.map(async (q) => {
       const { count: responseCount } = await supabase
         .from('questionnaire_responses')
         .select('*', { count: 'exact', head: true })

@@ -17,7 +17,8 @@ export interface UserRoleInfo {
  * Get all roles and organization memberships for the current user
  */
 export async function getUserRoles(
-  supabase: SupabaseClient<Database>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any
 ): Promise<UserRoleInfo> {
   const {
     data: { user },
@@ -126,7 +127,8 @@ export async function getUserOrgRole(
  * Check if user has access to admin area (system admin only)
  */
 export async function canAccessAdminArea(
-  supabase: SupabaseClient<Database>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any
 ): Promise<boolean> {
   return isSystemAdmin(supabase)
 }
@@ -135,7 +137,8 @@ export async function canAccessAdminArea(
  * Check if user has access to organization area (system admin or org member)
  */
 export async function canAccessOrgArea(
-  supabase: SupabaseClient<Database>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
   orgId: string
 ): Promise<boolean> {
   const [isSysAdmin, isOrgMem] = await Promise.all([
@@ -149,7 +152,8 @@ export async function canAccessOrgArea(
  * Check if user can manage organization (system admin or org admin)
  */
 export async function canManageOrg(
-  supabase: SupabaseClient<Database>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
   orgId: string
 ): Promise<boolean> {
   const [isSysAdmin, isOrgAdm] = await Promise.all([

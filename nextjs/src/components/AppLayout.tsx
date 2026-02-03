@@ -8,6 +8,8 @@ import {
     Menu,
     X,
     ChevronDown,
+    ChevronLeft,
+    ChevronRight,
     LogOut,
     Key,
     Building2,
@@ -19,6 +21,7 @@ import { createSPASassClient } from "@/lib/supabase/client";
 export default function AppLayout({ children }: { children: React.ReactNode }) {
     const [isSidebarOpen, setSidebarOpen] = useState(false);
     const [isUserDropdownOpen, setUserDropdownOpen] = useState(false);
+    const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
     const pathname = usePathname();
     const router = useRouter();
 
@@ -95,16 +98,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             )}
 
             {/* Sidebar */}
-            <div className={`fixed inset-y-0 left-0 w-64 bg-white shadow-lg transform transition-transform duration-200 ease-in-out z-30 
+            <div className={`fixed inset-y-0 left-0 bg-white shadow-lg transform transition-all duration-200 ease-in-out z-30
+                ${isSidebarCollapsed ? 'w-16' : 'w-64'}
                 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
 
                 <div className="h-16 flex items-center justify-between px-4 border-b">
-                    <span className="text-xl font-semibold text-primary-600">{productName}</span>
+                    {!isSidebarCollapsed && (
+                        <span className="text-xl font-semibold text-primary-600">{productName}</span>
+                    )}
                     <button
                         onClick={toggleSidebar}
                         className="lg:hidden text-gray-500 hover:text-gray-700"
                     >
                         <X className="h-6 w-6" />
+                    </button>
+                    <button
+                        onClick={() => setSidebarCollapsed(!isSidebarCollapsed)}
+                        className="hidden lg:block text-gray-500 hover:text-gray-700 ml-auto"
+                        title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                    >
+                        {isSidebarCollapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
                     </button>
                 </div>
 
@@ -116,25 +129,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                             <Link
                                 key={item.name}
                                 href={item.href}
-                                className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                                className={`group flex items-center ${isSidebarCollapsed ? 'justify-center' : ''} px-2 py-2 text-sm font-medium rounded-md ${
                                     isActive
                                         ? 'bg-primary-50 text-primary-600'
                                         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                                 }`}
+                                title={isSidebarCollapsed ? item.name : ''}
                             >
                                 <item.icon
-                                    className={`mr-3 h-5 w-5 ${
+                                    className={`${isSidebarCollapsed ? '' : 'mr-3'} h-5 w-5 ${
                                         isActive ? 'text-primary-500' : 'text-gray-400 group-hover:text-gray-500'
                                     }`}
                                 />
-                                {item.name}
+                                {!isSidebarCollapsed && item.name}
                             </Link>
                         );
                     })}
                 </nav>
 
                 {/* Organization Sub-Navigation */}
-                {orgSubNavigation.length > 0 && (
+                {orgSubNavigation.length > 0 && !isSidebarCollapsed && (
                     <div className="mt-6 px-2">
                         <div className="px-2 mb-2">
                             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -168,7 +182,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
             </div>
 
-            <div className="lg:pl-64">
+            <div className={`transition-all duration-200 ${isSidebarCollapsed ? 'lg:pl-16' : 'lg:pl-64'}`}>
                 <div className="sticky top-0 z-10 flex items-center justify-between h-16 bg-white shadow-sm px-4">
                     <button
                         onClick={toggleSidebar}

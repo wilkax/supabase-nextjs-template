@@ -84,6 +84,8 @@ export function AnalyticsDashboardClient({ organization, questionnaires, approac
   const [sections, setSections] = useState<Section[]>([]);
   const [aggregatedData, setAggregatedData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [sortBy, setSortBy] = useState<'none' | 'average-desc' | 'average-asc' | 'median-desc' | 'median-asc'>('none');
+  const [expandedSections, setExpandedSections] = useState<string[]>([]);
 
   // Extract sections when questionnaire is selected
   useEffect(() => {
@@ -94,13 +96,28 @@ export function AnalyticsDashboardClient({ organization, questionnaires, approac
         setSections(schema.sections || []);
         setSelectedSections([]);
         setSelectedQuestions([]);
+        setExpandedSections([]);
       }
     } else {
       setSections([]);
       setSelectedSections([]);
       setSelectedQuestions([]);
+      setExpandedSections([]);
     }
   }, [selectedQuestionnaire, questionnaires]);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.section-dropdown')) {
+        setExpandedSections([]);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Fetch aggregated data when filters change
   useEffect(() => {
@@ -139,7 +156,7 @@ export function AnalyticsDashboardClient({ organization, questionnaires, approac
     if (!section) return;
 
     const sectionQuestionIds = section.questions.map(q => q.id);
-    
+
     if (selectedSections.includes(sectionId)) {
       // Deselect section and its questions
       setSelectedSections(prev => prev.filter(id => id !== sectionId));
@@ -157,6 +174,33 @@ export function AnalyticsDashboardClient({ organization, questionnaires, approac
     } else {
       setSelectedQuestions(prev => [...prev, questionId]);
     }
+  };
+
+  const toggleSectionExpanded = (sectionId: string) => {
+    if (expandedSections.includes(sectionId)) {
+      setExpandedSections(prev => prev.filter(id => id !== sectionId));
+    } else {
+      setExpandedSections(prev => [...prev, sectionId]);
+    }
+  };
+
+  // Sort questions based on selected sort option
+  const getSortedQuestions = () => {
+    if (!aggregatedData || !aggregatedData.questions) return [];
+
+    const questionEntries = Object.entries(aggregatedData.questions);
+
+    if (sortBy === 'none') {
+      return questionEntries;
+    }
+
+    return questionEntries.sort(([, a]: [string, any], [, b]: [string, any]) => {
+      if (sortBy === 'average-desc') return b.average - a.average;
+      if (sortBy === 'average-asc') return a.average - b.average;
+      if (sortBy === 'median-desc') return b.median - a.median;
+      if (sortBy === 'median-asc') return a.median - b.median;
+      return 0;
+    });
   };
 
   const handleExportPowerPoint = async () => {
@@ -191,174 +235,204 @@ export function AnalyticsDashboardClient({ organization, questionnaires, approac
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Analytics Dashboard</h1>
         <p className="text-gray-600">
           Filter and visualize questionnaire data, then export to PowerPoint
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Filter Panel */}
-        <div className="lg:col-span-1">
-          <div className="bg-white border border-gray-200 rounded-lg p-6 sticky top-4">
-            <div className="flex items-center gap-2 mb-6">
-              <Filter className="h-5 w-5 text-gray-600" />
-              <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
-            </div>
-
-            {/* Questionnaire Selector */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Questionnaire
-              </label>
-              <select
-                value={selectedQuestionnaire}
-                onChange={(e) => setSelectedQuestionnaire(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select a questionnaire</option>
-                {questionnaires.map((q) => (
-                  <option key={q.id} value={q.id}>
-                    {q.title} ({q.responseCount} responses)
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Sections & Questions */}
-            {sections.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Sections & Questions
-                  </label>
-                  <button
-                    onClick={() => {
-                      if (selectedSections.length === sections.length) {
-                        setSelectedSections([]);
-                        setSelectedQuestions([]);
-                      } else {
-                        setSelectedSections(sections.map(s => s.id));
-                        setSelectedQuestions(sections.flatMap(s => s.questions.map(q => q.id)));
-                      }
-                    }}
-                    className="text-xs text-blue-600 hover:text-blue-700"
-                  >
-                    {selectedSections.length === sections.length ? 'Deselect All' : 'Select All'}
-                  </button>
-                </div>
-
-                <div className="space-y-4 max-h-96 overflow-y-auto">
-                  {sections.map((section) => (
-                    <div key={section.id} className="border border-gray-200 rounded-md p-3">
-                      <label className="flex items-start gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={selectedSections.includes(section.id)}
-                          onChange={() => handleSectionToggle(section.id)}
-                          className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                        />
-                        <div className="flex-1">
-                          <div className="font-medium text-sm text-gray-900">{section.title}</div>
-                          {section.description && (
-                            <div className="text-xs text-gray-500 mt-1">{section.description}</div>
-                          )}
-                        </div>
-                      </label>
-
-                      {/* Questions under section */}
-                      <div className="ml-6 mt-2 space-y-2">
-                        {section.questions.map((question) => (
-                          <label key={question.id} className="flex items-start gap-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={selectedQuestions.includes(question.id)}
-                              onChange={() => handleQuestionToggle(question.id)}
-                              className="mt-0.5 h-3.5 w-3.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                            />
-                            <span className="text-xs text-gray-700">{question.text}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Export Button */}
-            {aggregatedData && (
-              <div className="mt-6 pt-6 border-t border-gray-200">
-                <button
-                  onClick={handleExportPowerPoint}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <Download className="h-4 w-4" />
-                  Export to PowerPoint
-                </button>
-              </div>
-            )}
-          </div>
+      {/* Horizontal Filter Bar */}
+      <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Filter className="h-5 w-5 text-gray-600" />
+          <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
         </div>
 
-        {/* Visualization Area */}
-        <div className="lg:col-span-2">
-          {!selectedQuestionnaire ? (
-            <div className="bg-white border border-gray-200 rounded-lg p-12 text-center">
-              <BarChart3 className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Select a Questionnaire</h3>
-              <p className="text-gray-500">
-                Choose a questionnaire from the filters to start visualizing data
-              </p>
-            </div>
-          ) : selectedQuestions.length === 0 ? (
-            <div className="bg-white border border-gray-200 rounded-lg p-12 text-center">
-              <Filter className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Select Questions</h3>
-              <p className="text-gray-500">
-                Choose sections or questions to visualize their data
-              </p>
-            </div>
-          ) : loading ? (
-            <div className="bg-white border border-gray-200 rounded-lg p-12 text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-500">Loading data...</p>
-            </div>
-          ) : aggregatedData ? (
-            <div className="space-y-6">
-              {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <BarChart3 className="h-5 w-5 text-blue-600" />
-                    <h3 className="text-sm font-medium text-gray-600">Questions</h3>
-                  </div>
-                  <p className="text-2xl font-bold text-gray-900">{selectedQuestions.length}</p>
-                </div>
-                <div className="bg-white border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="h-5 w-5 text-green-600" />
-                    <h3 className="text-sm font-medium text-gray-600">Responses</h3>
-                  </div>
-                  <p className="text-2xl font-bold text-gray-900">{aggregatedData.responseCount}</p>
-                </div>
-                <div className="bg-white border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <PieChart className="h-5 w-5 text-purple-600" />
-                    <h3 className="text-sm font-medium text-gray-600">Avg Score</h3>
-                  </div>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {Object.values(aggregatedData.questions).length > 0
-                      ? (Object.values(aggregatedData.questions).reduce((sum: number, q: any) => sum + q.average, 0) /
-                         Object.values(aggregatedData.questions).length).toFixed(2)
-                      : '0.00'}
-                  </p>
-                </div>
-              </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Questionnaire Selector */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Questionnaire
+            </label>
+            <select
+              value={selectedQuestionnaire}
+              onChange={(e) => setSelectedQuestionnaire(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            >
+              <option value="">Select a questionnaire</option>
+              {questionnaires.map((q) => (
+                <option key={q.id} value={q.id}>
+                  {q.title} ({q.responseCount} responses)
+                </option>
+              ))}
+            </select>
+          </div>
 
-              {/* Question Charts */}
-              {Object.entries(aggregatedData.questions).map(([questionId, questionData]: [string, any]) => (
+          {/* Sections & Questions Dropdown */}
+          {sections.length > 0 && (
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Sections & Questions
+              </label>
+              <div className="flex gap-2 flex-wrap">
+                {sections.map((section) => (
+                  <div key={section.id} className="relative section-dropdown">
+                    <button
+                      onClick={() => toggleSectionExpanded(section.id)}
+                      className={`px-3 py-2 text-sm border rounded-md transition-colors ${
+                        selectedSections.includes(section.id)
+                          ? 'bg-blue-50 border-blue-300 text-blue-700'
+                          : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {section.title}
+                      <span className="ml-1 text-xs">
+                        ({section.questions.filter(q => selectedQuestions.includes(q.id)).length} / {section.questions.length})
+                      </span>
+                    </button>
+
+                    {expandedSections.includes(section.id) && (
+                      <div className="absolute z-10 mt-1 w-80 bg-white border border-gray-200 rounded-md shadow-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-gray-900">{section.title}</span>
+                          <button
+                            onClick={() => handleSectionToggle(section.id)}
+                            className="text-xs text-blue-600 hover:text-blue-700"
+                          >
+                            {selectedSections.includes(section.id) ? 'Deselect All' : 'Select All'}
+                          </button>
+                        </div>
+                        <div className="max-h-64 overflow-y-auto space-y-2">
+                          {section.questions.map((question) => (
+                            <label key={question.id} className="flex items-start gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                              <input
+                                type="checkbox"
+                                checked={selectedQuestions.includes(question.id)}
+                                onChange={() => handleQuestionToggle(question.id)}
+                                className="mt-0.5 h-3.5 w-3.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                              <span className="text-xs text-gray-700">{question.text}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <button
+                  onClick={() => {
+                    if (selectedSections.length === sections.length) {
+                      setSelectedSections([]);
+                      setSelectedQuestions([]);
+                    } else {
+                      setSelectedSections(sections.map(s => s.id));
+                      setSelectedQuestions(sections.flatMap(s => s.questions.map(q => q.id)));
+                    }
+                  }}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                >
+                  {selectedSections.length === sections.length ? 'Clear All' : 'Select All'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Sort By */}
+          {aggregatedData && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Sort By
+              </label>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              >
+                <option value="none">Default Order</option>
+                <option value="average-desc">Average (High to Low)</option>
+                <option value="average-asc">Average (Low to High)</option>
+                <option value="median-desc">Median (High to Low)</option>
+                <option value="median-asc">Median (Low to High)</option>
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* Export Button */}
+        {aggregatedData && (
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={handleExportPowerPoint}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <Download className="h-4 w-4" />
+              Export to PowerPoint
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Visualization Area */}
+      <div>
+        {!selectedQuestionnaire ? (
+          <div className="bg-white border border-gray-200 rounded-lg p-12 text-center">
+            <BarChart3 className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Select a Questionnaire</h3>
+            <p className="text-gray-500">
+              Choose a questionnaire from the filters to start visualizing data
+            </p>
+          </div>
+        ) : selectedQuestions.length === 0 ? (
+          <div className="bg-white border border-gray-200 rounded-lg p-12 text-center">
+            <Filter className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Select Questions</h3>
+            <p className="text-gray-500">
+              Choose sections or questions to visualize their data
+            </p>
+          </div>
+        ) : loading ? (
+          <div className="bg-white border border-gray-200 rounded-lg p-12 text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-500">Loading data...</p>
+          </div>
+        ) : aggregatedData ? (
+          <div className="space-y-6">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <BarChart3 className="h-5 w-5 text-blue-600" />
+                  <h3 className="text-sm font-medium text-gray-600">Questions</h3>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{selectedQuestions.length}</p>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="h-5 w-5 text-green-600" />
+                  <h3 className="text-sm font-medium text-gray-600">Responses</h3>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{aggregatedData.responseCount}</p>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <PieChart className="h-5 w-5 text-purple-600" />
+                  <h3 className="text-sm font-medium text-gray-600">Avg Score</h3>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">
+                  {Object.values(aggregatedData.questions).length > 0
+                    ? (
+                        Object.values(aggregatedData.questions).reduce((sum: number, q: any) => sum + q.average, 0)
+                        / Object.values(aggregatedData.questions).length
+                      ).toFixed(2)
+                    : '0.00'}
+                </p>
+              </div>
+            </div>
+
+            {/* Question Charts - Using sorted questions */}
+            <div className="space-y-6">
+              {getSortedQuestions().map(([questionId, questionData]: [string, any]) => (
                 <div key={questionId} className="bg-white border border-gray-200 rounded-lg p-6">
                   <div className="mb-4">
                     <h3 className="text-lg font-semibold text-gray-900 mb-1">
@@ -448,8 +522,8 @@ export function AnalyticsDashboardClient({ organization, questionnaires, approac
                 </div>
               ))}
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

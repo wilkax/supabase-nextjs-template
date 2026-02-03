@@ -21,7 +21,7 @@ export default function ResetPasswordPage() {
                 const { data: { user }, error } = await supabase.getSupabaseClient().auth.getUser();
 
                 if (error || !user) {
-                    setError('Invalid or expired reset link. Please request a new password reset.');
+                    setError('Invalid or expired link. Please request a new invitation or password reset.');
                 }
             } catch {
                 setError('Failed to verify reset session');
@@ -79,11 +79,11 @@ export default function ResetPasswordPage() {
                     </div>
 
                     <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                        Password reset successful
+                        Password set successfully
                     </h2>
 
                     <p className="text-gray-600 mb-8">
-                        Your password has been successfully reset.
+                        Your password has been successfully set.
                         You will be redirected to the app in a moment.
                     </p>
                 </div>
@@ -98,7 +98,7 @@ export default function ResetPasswordPage() {
                     <Key className="h-12 w-12 text-primary-600" />
                 </div>
                 <h2 className="text-2xl font-bold text-center text-gray-900 mb-8">
-                    Create new password
+                    Set your password
                 </h2>
             </div>
 
@@ -154,7 +154,7 @@ export default function ResetPasswordPage() {
                         disabled={loading}
                         className="flex w-full justify-center rounded-md border border-transparent bg-primary-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50"
                     >
-                        {loading ? 'Resetting password...' : 'Reset password'}
+                        {loading ? 'Setting password...' : 'Set password'}
                     </button>
                 </div>
             </form>

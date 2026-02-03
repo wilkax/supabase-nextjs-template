@@ -118,6 +118,66 @@ export async function generateAnonymousInviteLink(
 }
 
 /**
+ * Get existing invitation link for a questionnaire
+ * Returns the most recent valid token for the questionnaire
+ */
+export async function getQuestionnaireInviteLink(
+  questionnaireId: string,
+  organizationId: string
+): Promise<{ success: boolean; link?: string; error?: string }> {
+  try {
+    const supabase = await createSSRClient()
+
+    // Check if user can manage the organization (system admin or org admin)
+    const canManage = await canManageOrg(supabase, organizationId)
+
+    if (!canManage) {
+      return {
+        success: false,
+        error: 'Unauthorized: Only organization admins and system admins can view invite links',
+      }
+    }
+
+    // Get the most recent token for this questionnaire
+    const { data: token, error } = await supabase
+      .from('participant_access_tokens')
+      .select('token')
+      .eq('questionnaire_id', questionnaireId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (error) {
+      return {
+        success: false,
+        error: 'Failed to fetch invitation link',
+      }
+    }
+
+    if (!token) {
+      return {
+        success: true,
+        link: undefined,
+      }
+    }
+
+    // Generate the invitation link
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+    const inviteLink = `${baseUrl}/q/${token.token}`
+
+    return {
+      success: true,
+      link: inviteLink,
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
+}
+
+/**
  * Update questionnaire dates
  */
 export async function updateQuestionnaireDates(

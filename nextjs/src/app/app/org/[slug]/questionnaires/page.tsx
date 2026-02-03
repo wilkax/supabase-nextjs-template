@@ -3,8 +3,9 @@
 import { useEffect, useState, useCallback } from 'react'
 import { createSPASassClient } from '@/lib/supabase/client'
 import { Tables } from '@/lib/types'
-import { Plus, Calendar, Users, Eye } from 'lucide-react'
+import { Plus, Calendar, Users, Eye, Copy, Check } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
+import { generateAnonymousInviteLink, getQuestionnaireInviteLink } from '@/app/actions/questionnaires'
 
 type Organization = Tables<'organizations'>
 type Questionnaire = Tables<'questionnaires'>
@@ -33,6 +34,8 @@ export default function QuestionnairesPage() {
     start_date: '',
     end_date: '',
   })
+  const [inviteLinks, setInviteLinks] = useState<Record<string, string>>({})
+  const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
     const supabaseWrapper = await createSPASassClient()
@@ -57,6 +60,20 @@ export default function QuestionnairesPage() {
 
       if (questionnairesData) {
         setQuestionnaires(questionnairesData)
+
+        // Fetch invitation links for anonymous questionnaires
+        const links: Record<string, string> = {}
+        await Promise.all(
+          questionnairesData
+            .filter(q => q.is_anonymous)
+            .map(async (q) => {
+              const result = await getQuestionnaireInviteLink(q.id, orgData.id)
+              if (result.success && result.link) {
+                links[q.id] = result.link
+              }
+            })
+        )
+        setInviteLinks(links)
       }
 
       // Get assigned approaches with questionnaires
@@ -110,7 +127,7 @@ export default function QuestionnairesPage() {
     const supabaseWrapper = await createSPASassClient()
     const supabase = supabaseWrapper.getSupabaseClient()
 
-    const { error } = await supabase
+    const { data: newQuestionnaireData, error } = await supabase
       .from('questionnaires')
       .insert([{
         organization_id: org.id,
@@ -123,8 +140,15 @@ export default function QuestionnairesPage() {
         end_date: newQuestionnaire.end_date || null,
         status: 'draft',
       }])
+      .select()
+      .single()
 
-    if (!error) {
+    if (!error && newQuestionnaireData) {
+      // Auto-generate invitation link for anonymous questionnaires
+      if (newQuestionnaire.is_anonymous) {
+        await generateAnonymousInviteLink(newQuestionnaireData.id, org.id)
+      }
+
       setShowCreateForm(false)
       setSelectedApproach(null)
       setNewQuestionnaire({
@@ -136,6 +160,12 @@ export default function QuestionnairesPage() {
       })
       loadData()
     }
+  }
+
+  async function handleCopyLink(questionnaireId: string, link: string) {
+    await navigator.clipboard.writeText(link)
+    setCopiedLinkId(questionnaireId)
+    setTimeout(() => setCopiedLinkId(null), 2000)
   }
 
   if (loading) {
@@ -337,7 +367,31 @@ export default function QuestionnairesPage() {
                         </span>
                       </div>
                     </div>
-                    <div className="ml-4">
+                    <div className="ml-4 flex items-center gap-2">
+                      {/* Copy Invitation Link Button for Anonymous Questionnaires */}
+                      {q.is_anonymous && inviteLinks[q.id] && (
+                        <button
+                          onClick={() => handleCopyLink(q.id, inviteLinks[q.id])}
+                          className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                            copiedLinkId === q.id
+                              ? 'bg-green-600 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                          title="Copy invitation link"
+                        >
+                          {copiedLinkId === q.id ? (
+                            <>
+                              <Check className="h-4 w-4" />
+                              Copied!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-4 w-4" />
+                              Copy Link
+                            </>
+                          )}
+                        </button>
+                      )}
                       <button
                         onClick={() => router.push(`/app/org/${slug}/questionnaires/${q.id}`)}
                         className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-500 hover:bg-blue-50 rounded-md transition-colors"

@@ -16,7 +16,7 @@ export async function inviteOrgAdmin(
     // Send invite via Supabase Auth
     const { data: inviteData, error: inviteError } =
       await supabase.auth.admin.inviteUserByEmail(email, {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/reset-password`,
       })
 
     if (inviteError) {
@@ -65,7 +65,7 @@ export async function inviteOrgAuditor(
     // Send invite via Supabase Auth
     const { data: inviteData, error: inviteError } =
       await supabase.auth.admin.inviteUserByEmail(email, {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/reset-password`,
       })
 
     if (inviteError) {

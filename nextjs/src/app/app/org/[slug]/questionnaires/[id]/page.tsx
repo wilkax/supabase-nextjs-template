@@ -6,7 +6,7 @@ import { Tables } from '@/lib/types'
 import { ArrowLeft, BarChart3, Link2, Copy, Check, Calendar } from 'lucide-react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { generateAnonymousInviteLink, updateQuestionnaireDates } from '@/app/actions/questionnaires'
+import { generateAnonymousInviteLink, updateQuestionnaireDates, getQuestionnaireInviteLink } from '@/app/actions/questionnaires'
 
 type Questionnaire = Tables<'questionnaires'>
 type Organization = Tables<'organizations'>
@@ -73,6 +73,14 @@ export default function QuestionnaireDetailPage() {
 
     if (questionnaireData) {
       setQuestionnaire(questionnaireData)
+
+      // Load existing invitation link for anonymous questionnaires
+      if (questionnaireData.is_anonymous && orgData) {
+        const result = await getQuestionnaireInviteLink(id, orgData.id)
+        if (result.success && result.link) {
+          setInviteLink(result.link)
+        }
+      }
     }
 
     setLoading(false)

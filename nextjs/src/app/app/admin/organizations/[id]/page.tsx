@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import InviteAdminForm from '@/components/InviteAdminForm'
+import InviteAuditorForm from '@/components/InviteAuditorForm'
+import RemoveMemberButton from '@/components/RemoveMemberButton'
 import { Tables } from '@/lib/types'
 import OrganizationApproaches from '@/components/OrganizationApproaches'
 
@@ -43,15 +45,23 @@ export default async function OrganizationDetailPage({
     user: { email: string }
   }
 
-  const members: MemberWithUser[] = membersData ? await Promise.all(
-    membersData.map(async (member) => {
-      const { data: userData } = await adminClient.auth.admin.getUserById(member.user_id)
-      return {
-        ...member,
-        user: { email: userData.user?.email || 'Unknown' }
-      }
-    })
-  ) : []
+  const members: MemberWithUser[] = membersData
+    ? await Promise.all(
+        membersData.map(async (member) => {
+          const { data: userData } = await adminClient.auth.admin.getUserById(
+            member.user_id
+          )
+          return {
+            ...member,
+            user: { email: userData.user?.email || 'Unknown' },
+          }
+        })
+      )
+    : []
+
+  // Separate members by role
+  const admins = members.filter((m) => m.role === 'admin')
+  const auditors = members.filter((m) => m.role === 'auditor')
 
   // Get questionnaires
   const { data: questionnairesData } = await supabase
@@ -120,36 +130,102 @@ export default async function OrganizationDetailPage({
         </div>
       </div>
 
-      {/* Members Section */}
+      {/* Administrators Section */}
       <div className="bg-white shadow rounded-lg mb-6">
         <div className="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between items-center">
-          <h3 className="text-lg leading-6 font-medium text-gray-900">
-            Members
-          </h3>
+          <div>
+            <h3 className="text-lg leading-6 font-medium text-gray-900">
+              Administrators ({admins.length})
+            </h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Organization administrators have full access to manage the
+              organization
+            </p>
+          </div>
           <InviteAdminForm organizationId={id} />
         </div>
         <ul className="divide-y divide-gray-200">
-          {members && members.length > 0 ? (
-            members.map((member) => (
+          {admins.length > 0 ? (
+            admins.map((member) => (
               <li key={member.id} className="px-4 py-4 sm:px-6">
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="flex-1">
                     <p className="text-sm font-medium text-gray-900">
                       {member.user?.email || 'Unknown'}
                     </p>
                     <p className="text-sm text-gray-500">
-                      Role: {member.role}
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        Admin
+                      </span>
                     </p>
                   </div>
-                  <div className="text-sm text-gray-500">
-                    Added {new Date(member.created_at).toLocaleDateString()}
+                  <div className="flex items-center gap-4">
+                    <div className="text-sm text-gray-500">
+                      Added {new Date(member.created_at).toLocaleDateString()}
+                    </div>
+                    <RemoveMemberButton
+                      memberId={member.id}
+                      organizationId={id}
+                      memberEmail={member.user?.email || 'Unknown'}
+                      memberRole="Admin"
+                    />
                   </div>
                 </div>
               </li>
             ))
           ) : (
             <li className="px-4 py-4 sm:px-6 text-sm text-gray-500">
-              No members yet
+              No administrators
+            </li>
+          )}
+        </ul>
+      </div>
+
+      {/* Auditors Section */}
+      <div className="bg-white shadow rounded-lg mb-6">
+        <div className="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between items-center">
+          <div>
+            <h3 className="text-lg leading-6 font-medium text-gray-900">
+              Auditors ({auditors.length})
+            </h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Auditors can view and analyze questionnaire data
+            </p>
+          </div>
+          <InviteAuditorForm organizationId={id} />
+        </div>
+        <ul className="divide-y divide-gray-200">
+          {auditors.length > 0 ? (
+            auditors.map((member) => (
+              <li key={member.id} className="px-4 py-4 sm:px-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">
+                      {member.user?.email || 'Unknown'}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        Auditor
+                      </span>
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-sm text-gray-500">
+                      Added {new Date(member.created_at).toLocaleDateString()}
+                    </div>
+                    <RemoveMemberButton
+                      memberId={member.id}
+                      organizationId={id}
+                      memberEmail={member.user?.email || 'Unknown'}
+                      memberRole="Auditor"
+                    />
+                  </div>
+                </div>
+              </li>
+            ))
+          ) : (
+            <li className="px-4 py-4 sm:px-6 text-sm text-gray-500">
+              No auditors
             </li>
           )}
         </ul>

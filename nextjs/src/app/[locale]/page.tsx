@@ -1,4 +1,3 @@
-import React from 'react';
 import Link from 'next/link';
 import { ArrowRight, Globe, Shield, Users, Key, Database, Clock } from 'lucide-react';
 import AuthAwareButtons from '@/components/AuthAwareButtons';
@@ -7,7 +6,7 @@ import { getTranslations } from 'next-intl/server';
 
 export default async function Home() {
   const t = await getTranslations('home');
-  const productName = process.env.NEXT_PUBLIC_PRODUCTNAME;
+  const productName = process.env.NEXT_PUBLIC_PRODUCTNAME || 'OrgView';
 
   const features = [
     {
@@ -160,7 +159,7 @@ export default async function Home() {
               {t('ctaTitle')}
             </h2>
             <p className="mt-4 text-xl text-primary-100">
-              {t('ctaDescription')}
+              {t('ctaDescription', { productName })}
             </p>
             <Link
                 href="/auth/register"

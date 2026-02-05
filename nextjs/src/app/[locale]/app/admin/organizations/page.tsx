@@ -16,6 +16,7 @@ export default function OrganizationsPage() {
   const [organizations, setOrganizations] = useState<OrganizationWithCount[]>([])
   const [filteredOrgs, setFilteredOrgs] = useState<OrganizationWithCount[]>([])
   const [searchQuery, setSearchQuery] = useState('')
+  const [showArchived, setShowArchived] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -23,19 +24,26 @@ export default function OrganizationsPage() {
   }, [])
 
   useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredOrgs(organizations)
-    } else {
+    let filtered = organizations
+
+    // Filter by archived status
+    if (!showArchived) {
+      filtered = filtered.filter((org) => !org.is_archived)
+    }
+
+    // Filter by search query
+    if (searchQuery.trim() !== '') {
       const query = searchQuery.toLowerCase()
-      const filtered = organizations.filter(
+      filtered = filtered.filter(
         (org) =>
           org.name.toLowerCase().includes(query) ||
           org.slug.toLowerCase().includes(query) ||
           org.description?.toLowerCase().includes(query)
       )
-      setFilteredOrgs(filtered)
     }
-  }, [searchQuery, organizations])
+
+    setFilteredOrgs(filtered)
+  }, [searchQuery, organizations, showArchived])
 
   async function loadOrganizations() {
     try {
@@ -100,8 +108,8 @@ export default function OrganizationsPage() {
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="mb-6">
+      {/* Search Bar and Filters */}
+      <div className="mb-6 space-y-4">
         <div className="relative">
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
             <Search className="h-5 w-5 text-gray-400" />
@@ -113,6 +121,20 @@ export default function OrganizationsPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="block w-full rounded-md border-gray-300 pl-10 pr-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500"
           />
+        </div>
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={showArchived}
+              onChange={(e) => setShowArchived(e.target.checked)}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            Show Archived Organizations
+          </label>
+          <span className="text-sm text-gray-500">
+            {filteredOrgs.length} organization(s)
+          </span>
         </div>
       </div>
 
@@ -154,8 +176,15 @@ export default function OrganizationsPage() {
               filteredOrgs.map((org) => (
                 <tr key={org.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {org.name}
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm font-medium text-gray-900">
+                        {org.name}
+                      </div>
+                      {org.is_archived && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700">
+                          Archived
+                        </span>
+                      )}
                     </div>
                     {org.description && (
                       <div className="text-sm text-gray-500">

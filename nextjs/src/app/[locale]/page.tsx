@@ -1,3 +1,4 @@
+import React from 'react';
 import Link from 'next/link';
 import { ArrowRight, Globe, Shield, Users, Key, Database, Clock } from 'lucide-react';
 import AuthAwareButtons from '@/components/AuthAwareButtons';
@@ -6,7 +7,7 @@ import { getTranslations } from 'next-intl/server';
 
 export default async function Home() {
   const t = await getTranslations('home');
-  const productName = process.env.NEXT_PUBLIC_PRODUCTNAME || 'OrgView';
+  const productName = process.env.NEXT_PUBLIC_PRODUCTNAME;
 
   const features = [
     {

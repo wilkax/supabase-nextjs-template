@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { createSPASassClient } from '@/lib/supabase/client'
 import { Tables } from '@/lib/types'
-import { Plus, FileText, Layers } from 'lucide-react'
+import { Plus, FileText, Layers, X, Search } from 'lucide-react'
 import Link from 'next/link'
 
 type Approach = Tables<'approaches'>
@@ -19,8 +19,14 @@ export default function ApproachesPage() {
     name: '',
     slug: '',
     description: '',
-    category: '',
+    categories: [] as string[],
   })
+  const [categoryInput, setCategoryInput] = useState('')
+
+  // Filter state
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [allCategories, setAllCategories] = useState<string[]>([])
 
   useEffect(() => {
     loadApproaches()
@@ -37,6 +43,15 @@ export default function ApproachesPage() {
 
     if (data) {
       setApproaches(data)
+
+      // Extract all unique categories
+      const categories = new Set<string>()
+      data.forEach(approach => {
+        if (approach.category && Array.isArray(approach.category)) {
+          approach.category.forEach(cat => categories.add(cat))
+        }
+      })
+      setAllCategories(Array.from(categories).sort())
     }
     setLoading(false)
   }
@@ -52,13 +67,36 @@ export default function ApproachesPage() {
         name: newApproach.name,
         slug: newApproach.slug,
         description: newApproach.description || null,
-        category: newApproach.category || null,
+        category: newApproach.categories.length > 0 ? newApproach.categories : null,
       }])
 
     if (!error) {
       setShowCreateForm(false)
-      setNewApproach({ name: '', slug: '', description: '', category: '' })
+      setNewApproach({ name: '', slug: '', description: '', categories: [] })
+      setCategoryInput('')
       loadApproaches()
+    }
+  }
+
+  function addCategory() {
+    const trimmed = categoryInput.trim()
+    if (trimmed && !newApproach.categories.includes(trimmed)) {
+      setNewApproach({ ...newApproach, categories: [...newApproach.categories, trimmed] })
+      setCategoryInput('')
+    }
+  }
+
+  function removeCategory(category: string) {
+    setNewApproach({
+      ...newApproach,
+      categories: newApproach.categories.filter(c => c !== category)
+    })
+  }
+
+  function handleCategoryKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      addCategory()
     }
   }
 
@@ -73,6 +111,27 @@ export default function ApproachesPage() {
 
     loadApproaches()
   }
+
+  function toggleCategoryFilter(category: string) {
+    setSelectedCategories(prev =>
+      prev.includes(category)
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    )
+  }
+
+  // Filter approaches based on search query and selected categories
+  const filteredApproaches = approaches.filter(approach => {
+    const matchesSearch = searchQuery === '' ||
+      approach.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      approach.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      approach.slug.toLowerCase().includes(searchQuery.toLowerCase())
+
+    const matchesCategory = selectedCategories.length === 0 ||
+      (approach.category && approach.category.some(cat => selectedCategories.includes(cat)))
+
+    return matchesSearch && matchesCategory
+  })
 
   if (loading) {
     return <div className="p-6">{t('loading')}</div>
@@ -95,6 +154,64 @@ export default function ApproachesPage() {
             <Plus className="h-4 w-4" />
             {t('createApproach')}
           </button>
+        </div>
+      </div>
+
+      {/* Filter Section */}
+      <div className="mb-6 bg-white shadow rounded-lg p-4">
+        <div className="space-y-4">
+          {/* Search Input */}
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by name, description, or slug..."
+              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            />
+          </div>
+
+          {/* Category Filters */}
+          {allCategories.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Filter by Category
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {allCategories.map((category) => (
+                  <button
+                    key={category}
+                    type="button"
+                    onClick={() => toggleCategoryFilter(category)}
+                    className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      selectedCategories.includes(category)
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {category}
+                  </button>
+                ))}
+                {selectedCategories.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCategories([])}
+                    className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200"
+                  >
+                    Clear Filters
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Results Count */}
+          <div className="text-sm text-gray-500">
+            Showing {filteredApproaches.length} of {approaches.length} approaches
+          </div>
         </div>
       </div>
 
@@ -126,12 +243,46 @@ export default function ApproachesPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">{c('category')}</label>
-                <input
-                  type="text"
-                  value={newApproach.category}
-                  onChange={(e) => setNewApproach({ ...newApproach, category: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                />
+                <div className="mt-1">
+                  {/* Display existing category tags */}
+                  {newApproach.categories.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {newApproach.categories.map((cat) => (
+                        <span
+                          key={cat}
+                          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                        >
+                          {cat}
+                          <button
+                            type="button"
+                            onClick={() => removeCategory(cat)}
+                            className="hover:text-blue-900"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {/* Input for adding new categories */}
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={categoryInput}
+                      onChange={(e) => setCategoryInput(e.target.value)}
+                      onKeyDown={handleCategoryKeyDown}
+                      placeholder="Add category and press Enter"
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={addCategory}
+                      className="px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 border border-blue-300 rounded-md hover:bg-blue-50"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">{c('description')}</label>
@@ -164,9 +315,9 @@ export default function ApproachesPage() {
 
       {/* Approaches List */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
-        {approaches.length > 0 ? (
+        {filteredApproaches.length > 0 ? (
           <div className="divide-y divide-gray-200">
-            {approaches.map((approach) => (
+            {filteredApproaches.map((approach) => (
               <div key={approach.id} className="p-6 hover:bg-gray-50">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -183,10 +334,17 @@ export default function ApproachesPage() {
                       >
                         {approach.is_active ? t('active') : t('inactive')}
                       </span>
-                      {approach.category && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {approach.category}
-                        </span>
+                      {approach.category && approach.category.length > 0 && (
+                        <>
+                          {approach.category.map((cat) => (
+                            <span
+                              key={cat}
+                              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                            >
+                              {cat}
+                            </span>
+                          ))}
+                        </>
                       )}
                     </div>
                     {approach.description && (

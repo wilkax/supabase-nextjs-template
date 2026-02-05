@@ -6,8 +6,8 @@ import { createSPASassClient } from '@/lib/supabase/client'
 import { Tables } from '@/lib/types'
 import { ArrowLeft, BarChart3, Link2, Copy, Check, Calendar, Users, Upload, Mail, Trash2 } from 'lucide-react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
-import { generateAnonymousInviteLink, updateQuestionnaireDates, getQuestionnaireInviteLink, importParticipants, getParticipantsWithLinks, sendParticipantInvitations, deleteParticipants } from '@/app/[locale]/actions/questionnaires'
+import { useParams, useRouter } from 'next/navigation'
+import { generateAnonymousInviteLink, updateQuestionnaireDates, getQuestionnaireInviteLink, importParticipants, getParticipantsWithLinks, sendParticipantInvitations, deleteParticipants, deleteQuestionnaire } from '@/app/[locale]/actions/questionnaires'
 
 type Questionnaire = Tables<'questionnaires'>
 type Organization = Tables<'organizations'>
@@ -37,6 +37,7 @@ interface QuestionnaireSchema {
 export default function QuestionnaireDetailPage() {
   const t = useTranslations('organization')
   const c = useTranslations('common')
+  const router = useRouter()
   const params = useParams()
   const slug = params.slug as string
   const id = params.id as string
@@ -245,6 +246,36 @@ export default function QuestionnaireDetailPage() {
       alert(`Successfully deleted ${result.deleted} participant(s)`)
     } else {
       alert(result.error || 'Failed to delete participants')
+    }
+  }
+
+  async function handleDeleteQuestionnaire() {
+    if (!questionnaire || !organization) return
+
+    // Get response count first
+    const supabaseWrapper = await createSPASassClient()
+    const supabase = supabaseWrapper.getSupabaseClient()
+
+    const { count: responseCount } = await supabase
+      .from('questionnaire_responses')
+      .select('*', { count: 'exact', head: true })
+      .eq('questionnaire_id', questionnaire.id)
+
+    const warningMessage = responseCount && responseCount > 0
+      ? `This questionnaire has ${responseCount} response(s). Are you sure you want to delete it? This action cannot be undone.`
+      : 'Are you sure you want to delete this questionnaire? This action cannot be undone.'
+
+    if (!confirm(warningMessage)) {
+      return
+    }
+
+    const result = await deleteQuestionnaire(questionnaire.id, organization.id)
+
+    if (result.success) {
+      alert('Questionnaire deleted successfully')
+      router.push(`/app/org/${slug}/questionnaires`)
+    } else {
+      alert(result.error || 'Failed to delete questionnaire')
     }
   }
 
@@ -535,6 +566,21 @@ export default function QuestionnaireDetailPage() {
                 {c('viewReports')}
               </Link>
             </div>
+          </div>
+
+          {/* Danger Zone */}
+          <div className="bg-white shadow rounded-lg p-6 border-2 border-red-200">
+            <h2 className="text-lg font-medium text-red-900 mb-2">Danger Zone</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Once you delete a questionnaire, there is no going back. Please be certain.
+            </p>
+            <button
+              onClick={handleDeleteQuestionnaire}
+              className="inline-flex items-center gap-2 px-4 py-2 border border-red-300 text-sm font-medium rounded-md shadow-sm text-red-700 bg-white hover:bg-red-50"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete Questionnaire
+            </button>
           </div>
         </>
       )}

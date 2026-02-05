@@ -80,6 +80,7 @@ interface Props {
 
 export function AnalyticsDashboardClient({ organization, questionnaires, approaches, slug }: Props) {
   const t = useTranslations('analytics');
+  const c = useTranslations('common');
   const [selectedQuestionnaire, setSelectedQuestionnaire] = useState<string>('');
   const [selectedSections, setSelectedSections] = useState<string[]>([]);
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
@@ -446,7 +447,7 @@ export function AnalyticsDashboardClient({ organization, questionnaires, approac
         ) : loading ? (
           <div className="bg-white border border-gray-200 rounded-lg p-12 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-500">{t('common.loading')}</p>
+            <p className="text-gray-500">{c('loading')}</p>
           </div>
         ) : aggregatedData ? (
           <div className="space-y-6">

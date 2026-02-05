@@ -881,3 +881,70 @@ export async function sendParticipantInvitations(
   }
 }
 
+/**
+ * Delete a questionnaire and all associated data
+ * Returns the count of responses that will be deleted
+ */
+export async function deleteQuestionnaire(
+  questionnaireId: string,
+  organizationId: string
+): Promise<{ success: boolean; error?: string; responseCount?: number }> {
+  try {
+    const supabase = await createSSRClient()
+
+    // Check if user can manage the organization
+    const canManage = await canManageOrg(supabase, organizationId)
+
+    if (!canManage) {
+      return {
+        success: false,
+        error: 'Unauthorized: Only organization admins and system admins can delete questionnaires',
+      }
+    }
+
+    // Get questionnaire to verify it exists
+    const { data: questionnaire, error: qError } = await supabase
+      .from('questionnaires')
+      .select('*')
+      .eq('id', questionnaireId)
+      .eq('organization_id', organizationId)
+      .single()
+
+    if (qError || !questionnaire) {
+      return {
+        success: false,
+        error: 'Questionnaire not found',
+      }
+    }
+
+    // Count responses that will be deleted
+    const { count: responseCount } = await supabase
+      .from('questionnaire_responses')
+      .select('*', { count: 'exact', head: true })
+      .eq('questionnaire_id', questionnaireId)
+
+    // Delete the questionnaire (CASCADE will handle related data)
+    const { error: deleteError } = await supabase
+      .from('questionnaires')
+      .delete()
+      .eq('id', questionnaireId)
+      .eq('organization_id', organizationId)
+
+    if (deleteError) {
+      return {
+        success: false,
+        error: 'Failed to delete questionnaire: ' + deleteError.message,
+      }
+    }
+
+    return {
+      success: true,
+      responseCount: responseCount || 0,
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
+}

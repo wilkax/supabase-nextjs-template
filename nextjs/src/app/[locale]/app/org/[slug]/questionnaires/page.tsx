@@ -129,14 +129,34 @@ export default function QuestionnairesPage() {
     const supabaseWrapper = await createSPASassClient()
     const supabase = supabaseWrapper.getSupabaseClient()
 
+    // Get the latest published version for this approach questionnaire
+    const { data: latestVersion, error: versionError } = await supabase
+      .from('approach_questionnaire_versions')
+      .select('*')
+      .eq('approach_questionnaire_id', selectedApproach.questionnaire.id)
+      .order('version', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (versionError) {
+      alert('Error fetching questionnaire version: ' + versionError.message)
+      return
+    }
+
+    // If no published version exists, use the draft schema from approach_questionnaire
+    // Otherwise, use the latest published version
+    const schemaToUse = latestVersion ? latestVersion.schema : selectedApproach.questionnaire.schema
+    const versionIdToPin = latestVersion ? latestVersion.id : null
+
     const { data: newQuestionnaireData, error } = await supabase
       .from('questionnaires')
       .insert([{
         organization_id: org.id,
         approach_questionnaire_id: selectedApproach.questionnaire.id,
+        approach_questionnaire_version_id: versionIdToPin,
         title: newQuestionnaire.title,
         description: newQuestionnaire.description || null,
-        schema: selectedApproach.questionnaire.schema,
+        schema: schemaToUse,
         is_anonymous: newQuestionnaire.is_anonymous,
         start_date: newQuestionnaire.start_date || null,
         end_date: newQuestionnaire.end_date || null,
@@ -161,6 +181,8 @@ export default function QuestionnairesPage() {
         end_date: '',
       })
       loadData()
+    } else if (error) {
+      alert('Error creating questionnaire: ' + error.message)
     }
   }
 

@@ -7,6 +7,7 @@ import InviteAuditorForm from '@/components/InviteAuditorForm'
 import RemoveMemberButton from '@/components/RemoveMemberButton'
 import { Tables } from '@/lib/types'
 import OrganizationApproaches from '@/components/OrganizationApproaches'
+import OrganizationActions from '@/components/OrganizationActions'
 
 // Disable caching for this page to always show fresh data
 export const dynamic = 'force-dynamic'
@@ -267,6 +268,13 @@ export default async function OrganizationDetailPage({
           )}
         </ul>
       </div>
+
+      {/* Organization Actions */}
+      <OrganizationActions
+        organizationId={org.id}
+        organizationName={org.name}
+        isArchived={org.is_archived || false}
+      />
     </div>
   )
 }

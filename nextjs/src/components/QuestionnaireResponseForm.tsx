@@ -1,15 +1,12 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { createSPASassClient } from '@/lib/supabase/client'
 import { Tables } from '@/lib/types'
 import { CheckCircle2, AlertCircle } from 'lucide-react'
-import {
-  MultilingualQuestionnaireSchema,
-  getLocalizedSchema,
-  type SupportedLanguage
-} from '@/lib/questionnaire/i18n-schema'
 import { useTranslations } from 'next-intl'
+import { submitParticipantResponse } from '@/app/[locale]/actions/participant-responses'
+
+type SupportedLanguage = 'en' | 'de'
 
 type Questionnaire = Tables<'questionnaires'>
 type Participant = Tables<'participants'>
@@ -50,13 +47,17 @@ interface Props {
   participant: Participant
   existingResponse: QuestionnaireResponse | null
   isWithinTimeFrame?: boolean
+  masterLanguage?: string
+  translations?: Record<string, { title: string; description: string | null; schema: any }>
 }
 
 export default function QuestionnaireResponseForm({
   questionnaire,
   participant,
   existingResponse,
-  isWithinTimeFrame = true
+  isWithinTimeFrame = true,
+  masterLanguage = 'en',
+  translations = {}
 }: Props) {
   const t = useTranslations('questionnaire')
   const tErrors = useTranslations('errors')
@@ -64,57 +65,52 @@ export default function QuestionnaireResponseForm({
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(!!existingResponse)
   const [error, setError] = useState<string | null>(null)
-  const [currentLanguage, setCurrentLanguage] = useState<SupportedLanguage>('en')
+  const [currentLanguage, setCurrentLanguage] = useState<SupportedLanguage>(masterLanguage as SupportedLanguage)
+  const [languageSelected, setLanguageSelected] = useState(false)
+  const [hasStartedAnswering, setHasStartedAnswering] = useState(false)
   const questionRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
 
-  // Type guard: check if schema has the expected structure
-  const schemaData = questionnaire.schema
-  let rawSchema: QuestionnaireSchema | MultilingualQuestionnaireSchema = { sections: [] }
-  let isMultilingual = false
+  // Check if questionnaire is in draft mode
+  const isQuestionnaireActive = questionnaire.status === 'active'
 
-  if (
-    schemaData &&
-    typeof schemaData === 'object' &&
-    !Array.isArray(schemaData) &&
-    'sections' in schemaData &&
-    Array.isArray(schemaData.sections)
-  ) {
-    rawSchema = schemaData as unknown as QuestionnaireSchema
-    // Check if it's a multilingual schema
-    if ('primaryLanguage' in schemaData && 'availableLanguages' in schemaData) {
-      isMultilingual = true
-      rawSchema = schemaData as unknown as MultilingualQuestionnaireSchema
+  // Determine which schema to use based on current language and translations
+  let schema: QuestionnaireSchema = { sections: [] }
+  let questionnaireTitle = questionnaire.title
+  let questionnaireDescription = questionnaire.description
+
+  // Use translations system
+  const translationData = translations[currentLanguage]
+  if (translationData) {
+    questionnaireTitle = translationData.title
+    questionnaireDescription = translationData.description
+    const schemaData = translationData.schema
+    if (
+      schemaData &&
+      typeof schemaData === 'object' &&
+      !Array.isArray(schemaData) &&
+      'sections' in schemaData &&
+      Array.isArray(schemaData.sections)
+    ) {
+      schema = schemaData as unknown as QuestionnaireSchema
     }
   }
 
-  // Get localized schema based on current language
-  const schema: QuestionnaireSchema = isMultilingual
-    ? getLocalizedSchema(rawSchema as MultilingualQuestionnaireSchema, currentLanguage)
-    : rawSchema as QuestionnaireSchema
+  // Check if multiple languages are available
+  const availableLanguages = Object.keys(translations)
+  const hasMultipleLanguages = availableLanguages.length > 1
 
   useEffect(() => {
     if (existingResponse && existingResponse.answers) {
       setAnswers(existingResponse.answers as unknown as Answers)
+      setHasStartedAnswering(true)
     }
-  }, [existingResponse])
+    // If only one language available, skip language selection
+    if (!hasMultipleLanguages) {
+      setLanguageSelected(true)
+    }
+  }, [existingResponse, hasMultipleLanguages])
 
-  // Listen for language changes from QuestionnaireLanguageSelector
-  useEffect(() => {
-    const handleLanguageChange = (event: CustomEvent<string>) => {
-      setCurrentLanguage(event.detail as SupportedLanguage)
-    }
 
-    // Get initial language from localStorage
-    const savedLanguage = localStorage.getItem('questionnaire_language')
-    if (savedLanguage && (savedLanguage === 'en' || savedLanguage === 'de')) {
-      setCurrentLanguage(savedLanguage as SupportedLanguage)
-    }
-
-    window.addEventListener('questionnaireLanguageChange', handleLanguageChange as EventListener)
-    return () => {
-      window.removeEventListener('questionnaireLanguageChange', handleLanguageChange as EventListener)
-    }
-  }, [])
 
   function scrollToNextQuestion(currentQuestionId: string) {
     // Get all question IDs in order
@@ -140,6 +136,7 @@ export default function QuestionnaireResponseForm({
   }
 
   function handleAnswerChange(questionId: string, value: number | string | string[]) {
+    setHasStartedAnswering(true)
     setAnswers(prev => ({
       ...prev,
       [questionId]: value
@@ -148,6 +145,7 @@ export default function QuestionnaireResponseForm({
   }
 
   function handleMultipleChoiceChange(questionId: string, option: string, checked: boolean) {
+    setHasStartedAnswering(true)
     setAnswers(prev => {
       const current = (prev[questionId] as string[]) || []
       if (checked) {
@@ -159,6 +157,7 @@ export default function QuestionnaireResponseForm({
   }
 
   function handleRankingChange(questionId: string, options: string[]) {
+    setHasStartedAnswering(true)
     setAnswers(prev => ({
       ...prev,
       [questionId]: options
@@ -191,44 +190,65 @@ export default function QuestionnaireResponseForm({
 
     setSubmitting(true)
 
-    const supabaseWrapper = await createSPASassClient()
-    const supabase = supabaseWrapper.getSupabaseClient()
+    // Use server action to submit response (bypasses RLS for anonymous participants)
+    const result = await submitParticipantResponse(
+      questionnaire.id,
+      participant.id,
+      answers,
+      existingResponse?.id
+    )
 
-    if (existingResponse) {
-      // Update existing response
-      const { error: updateError } = await supabase
-        .from('questionnaire_responses')
-        .update({ 
-          answers: answers,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', existingResponse.id)
-
-      if (updateError) {
-        setError(tErrors('failedToUpdate'))
-        setSubmitting(false)
-        return
-      }
-    } else {
-      // Create new response
-      const { error: insertError } = await supabase
-        .from('questionnaire_responses')
-        .insert({
-          questionnaire_id: questionnaire.id,
-          participant_id: participant.id,
-          answers: answers,
-          submitted_at: new Date().toISOString()
-        })
-
-      if (insertError) {
-        setError(tErrors('failedToSubmit'))
-        setSubmitting(false)
-        return
-      }
+    if (!result.success) {
+      setError(result.error || tErrors('failedToSubmit'))
+      setSubmitting(false)
+      return
     }
 
     setSubmitting(false)
     setSubmitted(true)
+  }
+
+  // Language selection screen (only if multiple languages available)
+  if (!languageSelected && hasMultipleLanguages) {
+    const languageNames: Record<string, string> = {
+      en: 'English',
+      de: 'Deutsch',
+    }
+
+    return (
+      <div className="bg-white shadow rounded-lg p-8">
+        <div className="max-w-md mx-auto text-center">
+          <h2 className="text-xl font-bold text-gray-900 mb-2">
+            {currentLanguage === 'de' ? 'Sprache wählen' : 'Select Language'}
+          </h2>
+          <p className="text-sm text-gray-600 mb-6">
+            {currentLanguage === 'de'
+              ? 'Bitte wählen Sie Ihre bevorzugte Sprache für diesen Fragebogen. Die Sprache kann nach dem Start nicht mehr geändert werden.'
+              : 'Please select your preferred language for this questionnaire. The language cannot be changed after you start.'}
+          </p>
+          <div className="space-y-3">
+            {availableLanguages.map((lang) => (
+              <button
+                key={lang}
+                type="button"
+                onClick={() => {
+                  setCurrentLanguage(lang as SupportedLanguage)
+                  setLanguageSelected(true)
+                }}
+                className="w-full px-6 py-4 text-left border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors flex items-center justify-between group"
+              >
+                <span className="text-base font-medium text-gray-900 group-hover:text-blue-700">
+                  {languageNames[lang] || lang.toUpperCase()}
+                </span>
+                <svg className="h-5 w-5 text-gray-400 group-hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (submitted) {
@@ -446,9 +466,18 @@ export default function QuestionnaireResponseForm({
             </p>
           </div>
         )}
+        {!isQuestionnaireActive && (
+          <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
+            <p className="text-xs text-yellow-800">
+              {currentLanguage === 'de'
+                ? 'Dieser Fragebogen ist derzeit im Entwurfsmodus und akzeptiert keine Antworten.'
+                : 'This questionnaire is currently in draft mode and not accepting responses.'}
+            </p>
+          </div>
+        )}
         <button
           type="submit"
-          disabled={submitting || !isWithinTimeFrame}
+          disabled={submitting || !isWithinTimeFrame || !isQuestionnaireActive}
           className="w-full py-2 px-3 text-sm bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {submitting ? t('submitting') : existingResponse ? t('updateResponse') : t('submitResponse')}

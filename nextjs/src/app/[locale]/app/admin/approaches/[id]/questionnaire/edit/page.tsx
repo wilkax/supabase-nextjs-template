@@ -3,9 +3,10 @@
 import { useEffect, useState, useCallback } from 'react'
 import { createSPASassClient } from '@/lib/supabase/client'
 import { Tables, Json } from '@/lib/types'
-import { ArrowLeft, Plus, Trash2, GripVertical, Save } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, GripVertical, Save, CheckCircle, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
+import { markDraftChanged, publishQuestionnaireVersion } from '@/app/[locale]/actions/approach-questionnaires'
 
 type ApproachQuestionnaire = Tables<'approach_questionnaires'>
 
@@ -44,6 +45,8 @@ export default function QuestionnaireEditorPage() {
   const [schema, setSchema] = useState<QuestionnaireSchema>({ sections: [] })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
 
   const loadData = useCallback(async () => {
     const supabaseWrapper = await createSPASassClient()
@@ -83,6 +86,7 @@ export default function QuestionnaireEditorPage() {
     if (!questionnaire) return
 
     setSaving(true)
+    setSaveMessage(null)
     const supabaseWrapper = await createSPASassClient()
     const supabase = supabaseWrapper.getSupabaseClient()
 
@@ -91,11 +95,57 @@ export default function QuestionnaireEditorPage() {
       .update({ schema: schema as unknown as Json })
       .eq('id', questionnaire.id)
 
-    setSaving(false)
-
     if (!error) {
-      router.push(`/app/admin/approaches/${approachId}`)
+      // Mark that draft has changed
+      const result = await markDraftChanged(questionnaire.id)
+
+      if (result.success) {
+        setSaveMessage({ type: 'success', text: 'Draft saved successfully' })
+        // Update local state to reflect draft changes
+        setQuestionnaire({ ...questionnaire, has_draft_changes: true })
+
+        // Clear message after 3 seconds
+        setTimeout(() => setSaveMessage(null), 3000)
+      } else {
+        setSaveMessage({ type: 'error', text: result.error || 'Failed to mark draft as changed' })
+      }
+    } else {
+      setSaveMessage({ type: 'error', text: 'Failed to save draft' })
     }
+
+    setSaving(false)
+  }
+
+  async function publishVersion() {
+    if (!questionnaire) return
+
+    if (!confirm('Are you sure you want to publish this version? This will create an immutable snapshot that can be translated and assigned to organizations.')) {
+      return
+    }
+
+    setPublishing(true)
+    setSaveMessage(null)
+
+    const result = await publishQuestionnaireVersion(questionnaire.id)
+
+    if (result.success) {
+      setSaveMessage({ type: 'success', text: `Version ${result.version?.version} published successfully!` })
+      // Update local state
+      setQuestionnaire({
+        ...questionnaire,
+        current_version: result.version?.version || questionnaire.current_version,
+        has_draft_changes: false
+      })
+
+      // Redirect to approach page after 2 seconds
+      setTimeout(() => {
+        router.push(`/app/admin/approaches/${approachId}`)
+      }, 2000)
+    } else {
+      setSaveMessage({ type: 'error', text: result.error || 'Failed to publish version' })
+    }
+
+    setPublishing(false)
   }
 
   function addSection() {
@@ -247,17 +297,58 @@ export default function QuestionnaireEditorPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Edit Questionnaire</h1>
-            <p className="mt-1 text-sm text-gray-600">{questionnaire.title}</p>
+            <p className="mt-1 text-sm text-gray-600">
+              {questionnaire.title}
+              {questionnaire.current_version > 0 && (
+                <span className="ml-2 text-xs text-gray-500">
+                  (Current version: {questionnaire.current_version})
+                </span>
+              )}
+            </p>
+            {questionnaire.has_draft_changes && (
+              <div className="mt-2 inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
+                <AlertCircle className="h-3 w-3" />
+                Unpublished draft changes
+              </div>
+            )}
           </div>
-          <button
-            onClick={saveQuestionnaire}
-            disabled={saving}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-          >
-            <Save className="h-4 w-4" />
-            {saving ? 'Saving...' : 'Save Changes'}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={saveQuestionnaire}
+              disabled={saving}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+            >
+              <Save className="h-4 w-4" />
+              {saving ? 'Saving...' : 'Save Draft'}
+            </button>
+            <button
+              onClick={publishVersion}
+              disabled={publishing || saving}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+            >
+              <CheckCircle className="h-4 w-4" />
+              {publishing ? 'Publishing...' : 'Publish Version'}
+            </button>
+          </div>
         </div>
+
+        {/* Save/Publish Messages */}
+        {saveMessage && (
+          <div className={`mt-4 p-3 rounded-md ${
+            saveMessage.type === 'success'
+              ? 'bg-green-50 text-green-800 border border-green-200'
+              : 'bg-red-50 text-red-800 border border-red-200'
+          }`}>
+            <div className="flex items-center gap-2">
+              {saveMessage.type === 'success' ? (
+                <CheckCircle className="h-4 w-4" />
+              ) : (
+                <AlertCircle className="h-4 w-4" />
+              )}
+              <span className="text-sm">{saveMessage.text}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Sections */}

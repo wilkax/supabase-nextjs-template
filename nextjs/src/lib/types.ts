@@ -44,6 +44,9 @@ export type Database = {
           title: string
           description: string | null
           schema: Json
+          master_language: string
+          current_version: number
+          has_draft_changes: boolean
           created_at: string
           updated_at: string
         }
@@ -53,6 +56,9 @@ export type Database = {
           title: string
           description?: string | null
           schema?: Json
+          master_language?: string
+          current_version?: number
+          has_draft_changes?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -62,60 +68,94 @@ export type Database = {
           title?: string
           description?: string | null
           schema?: Json
+          master_language?: string
+          current_version?: number
+          has_draft_changes?: boolean
           created_at?: string
           updated_at?: string
         }
         Relationships: []
       }
-      approach_report_templates: {
+      approach_questionnaire_versions: {
         Row: {
           id: string
-          approach_id: string
-          name: string
-          slug: string
+          approach_questionnaire_id: string
+          version: number
+          title: string
           description: string | null
-          type: string
-          config: Json
-          order: number
-          is_active: boolean
+          schema: Json
+          master_language: string
+          published_by: string | null
+          published_at: string
+        }
+        Insert: {
+          id?: string
+          approach_questionnaire_id: string
+          version: number
+          title: string
+          description?: string | null
+          schema: Json
+          master_language: string
+          published_by?: string | null
+          published_at?: string
+        }
+        Update: {
+          id?: string
+          approach_questionnaire_id?: string
+          version?: number
+          title?: string
+          description?: string | null
+          schema?: Json
+          master_language?: string
+          published_by?: string | null
+          published_at?: string
+        }
+        Relationships: []
+      }
+      approach_questionnaire_translations: {
+        Row: {
+          id: string
+          version_id: string
+          language: string
+          title: string
+          description: string | null
+          schema: Json
+          translated_by: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
-          approach_id: string
-          name: string
-          slug: string
+          version_id: string
+          language: string
+          title: string
           description?: string | null
-          type?: string
-          config?: Json
-          order?: number
-          is_active?: boolean
+          schema: Json
+          translated_by?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
-          approach_id?: string
-          name?: string
-          slug?: string
+          version_id?: string
+          language?: string
+          title?: string
           description?: string | null
-          type?: string
-          config?: Json
-          order?: number
-          is_active?: boolean
+          schema?: Json
+          translated_by?: string | null
           created_at?: string
           updated_at?: string
         }
         Relationships: []
       }
+
       approaches: {
         Row: {
           id: string
           name: string
           slug: string
           description: string | null
-          category: string | null
+          category: string[] | null
           is_active: boolean
           created_at: string
           updated_at: string
@@ -126,7 +166,7 @@ export type Database = {
           name: string
           slug: string
           description?: string | null
-          category?: string | null
+          category?: string[] | null
           is_active?: boolean
           created_at?: string
           updated_at?: string
@@ -137,7 +177,7 @@ export type Database = {
           name?: string
           slug?: string
           description?: string | null
-          category?: string | null
+          category?: string[] | null
           is_active?: boolean
           created_at?: string
           updated_at?: string
@@ -202,6 +242,7 @@ export type Database = {
           name: string
           slug: string
           description: string | null
+          is_archived: boolean
           created_at: string
           updated_at: string
           created_by: string | null
@@ -211,6 +252,7 @@ export type Database = {
           name: string
           slug: string
           description?: string | null
+          is_archived?: boolean
           created_at?: string
           updated_at?: string
           created_by?: string | null
@@ -220,6 +262,7 @@ export type Database = {
           name?: string
           slug?: string
           description?: string | null
+          is_archived?: boolean
           created_at?: string
           updated_at?: string
           created_by?: string | null
@@ -331,6 +374,7 @@ export type Database = {
           schema: Json
           status: Database['public']['Enums']['questionnaire_status']
           approach_questionnaire_id: string | null
+          approach_questionnaire_version_id: string | null
           is_anonymous: boolean
           start_date: string | null
           end_date: string | null
@@ -349,6 +393,7 @@ export type Database = {
           schema?: Json
           status?: Database['public']['Enums']['questionnaire_status']
           approach_questionnaire_id?: string | null
+          approach_questionnaire_version_id?: string | null
           is_anonymous?: boolean
           start_date?: string | null
           end_date?: string | null
@@ -367,6 +412,7 @@ export type Database = {
           schema?: Json
           status?: Database['public']['Enums']['questionnaire_status']
           approach_questionnaire_id?: string | null
+          approach_questionnaire_version_id?: string | null
           is_anonymous?: boolean
           start_date?: string | null
           end_date?: string | null

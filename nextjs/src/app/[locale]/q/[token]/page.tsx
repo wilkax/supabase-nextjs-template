@@ -2,7 +2,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { Tables } from '@/lib/types'
 import { redirect } from 'next/navigation'
 import QuestionnaireResponseForm from '@/components/QuestionnaireResponseForm'
-import QuestionnaireLanguageSelector from '@/components/QuestionnaireLanguageSelector'
 import { getTranslations, getMessages } from 'next-intl/server'
 import { NextIntlClientProvider } from 'next-intl'
 
@@ -137,8 +136,50 @@ export default async function ParticipantQuestionnairePage({
   const isAfterEnd = endDate && now > endDate
   const isWithinTimeFrame = !isBeforeStart && !isAfterEnd
 
-  // Get available languages from questionnaire
-  const availableLanguages = questionnaire.available_languages || ['en'];
+  // Fetch approach questionnaire version and translations
+  let masterLanguage = 'en'
+  let availableLanguages: string[] = ['en']
+  let translations: Record<string, { title: string; description: string | null; schema: any }> = {}
+
+  if (questionnaire.approach_questionnaire_version_id) {
+    // Get the version
+    const { data: versionData } = await adminClient
+      .from('approach_questionnaire_versions')
+      .select('*')
+      .eq('id', questionnaire.approach_questionnaire_version_id)
+      .single()
+
+    if (versionData) {
+      masterLanguage = versionData.master_language || 'en'
+      availableLanguages = [masterLanguage]
+
+      // Store master language data
+      translations[masterLanguage] = {
+        title: versionData.title,
+        description: versionData.description,
+        schema: versionData.schema,
+      }
+
+      // Get all translations for this version
+      const { data: translationsData } = await adminClient
+        .from('approach_questionnaire_translations')
+        .select('*')
+        .eq('version_id', questionnaire.approach_questionnaire_version_id)
+
+      if (translationsData && translationsData.length > 0) {
+        translationsData.forEach((translation: any) => {
+          if (!availableLanguages.includes(translation.language)) {
+            availableLanguages.push(translation.language)
+          }
+          translations[translation.language] = {
+            title: translation.title,
+            description: translation.description,
+            schema: translation.schema,
+          }
+        })
+      }
+    }
+  }
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
@@ -156,10 +197,6 @@ export default async function ParticipantQuestionnairePage({
                 <p className="mt-1 text-sm text-gray-600">{questionnaire.description}</p>
               )}
             </div>
-            {/* Language Selector */}
-            {availableLanguages.length > 1 && (
-              <QuestionnaireLanguageSelector availableLanguages={availableLanguages} />
-            )}
           </div>
           <div className="mt-3 pt-3 border-t border-gray-200">
             <p className="text-xs text-gray-500">
@@ -300,6 +337,8 @@ export default async function ParticipantQuestionnairePage({
           participant={participant}
           existingResponse={existingResponse}
           isWithinTimeFrame={isWithinTimeFrame}
+          masterLanguage={masterLanguage}
+          translations={translations}
         />
         </div>
       </div>

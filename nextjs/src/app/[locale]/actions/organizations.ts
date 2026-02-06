@@ -23,7 +23,8 @@ export async function archiveOrganization(
     }
 
     // Archive the organization
-    const { error } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
       .from('organizations')
       .update({ is_archived: true, updated_at: new Date().toISOString() })
       .eq('id', organizationId)
@@ -64,7 +65,8 @@ export async function unarchiveOrganization(
     }
 
     // Unarchive the organization
-    const { error } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
       .from('organizations')
       .update({ is_archived: false, updated_at: new Date().toISOString() })
       .eq('id', organizationId)
@@ -114,7 +116,8 @@ export async function deleteOrganization(
     }
 
     // Get organization to verify it exists
-    const { data: organization, error: orgError } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: organization, error: orgError } = await (supabase as any)
       .from('organizations')
       .select('*')
       .eq('id', organizationId)
@@ -128,26 +131,31 @@ export async function deleteOrganization(
     }
 
     // Count related data
-    const { count: memberCount } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { count: memberCount } = await (supabase as any)
       .from('organization_members')
       .select('*', { count: 'exact', head: true })
       .eq('organization_id', organizationId)
 
-    const { count: questionnaireCount } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { count: questionnaireCount } = await (supabase as any)
       .from('questionnaires')
       .select('*', { count: 'exact', head: true })
       .eq('organization_id', organizationId)
 
     // Get questionnaire IDs first, then count responses
-    const { data: questionnaires } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: questionnaires } = await (supabase as any)
       .from('questionnaires')
       .select('id')
       .eq('organization_id', organizationId)
 
     let responseCount = 0
     if (questionnaires && questionnaires.length > 0) {
-      const questionnaireIds = questionnaires.map(q => q.id)
-      const { count } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const questionnaireIds = questionnaires.map((q: any) => q.id)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { count } = await (supabase as any)
         .from('questionnaire_responses')
         .select('*', { count: 'exact', head: true })
         .in('questionnaire_id', questionnaireIds)
@@ -155,7 +163,8 @@ export async function deleteOrganization(
     }
 
     // Delete the organization (CASCADE will handle related data)
-    const { error: deleteError } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: deleteError } = await (supabase as any)
       .from('organizations')
       .delete()
       .eq('id', organizationId)

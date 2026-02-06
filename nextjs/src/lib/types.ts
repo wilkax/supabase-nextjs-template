@@ -94,7 +94,7 @@ export type Database = {
           version: number
           title: string
           description?: string | null
-          schema: Json
+          schema?: Json
           master_language: string
           published_by?: string | null
           published_at?: string

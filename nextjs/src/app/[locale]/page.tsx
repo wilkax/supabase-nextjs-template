@@ -7,7 +7,7 @@ import { getTranslations } from 'next-intl/server';
 
 export default async function Home() {
   const t = await getTranslations('home');
-  const productName = process.env.NEXT_PUBLIC_PRODUCTNAME;
+  const productName = process.env.NEXT_PUBLIC_PRODUCTNAME || 'OrgView';
 
   const features = [
     {

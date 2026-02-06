@@ -35,7 +35,8 @@ export async function publishQuestionnaireVersion(
     }
 
     // Get the questionnaire
-    const { data: questionnaire, error: qError } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: questionnaire, error: qError } = await (supabase as any)
       .from('approach_questionnaires')
       .select('*')
       .eq('id', questionnaireId)
@@ -51,7 +52,8 @@ export async function publishQuestionnaireVersion(
     const nextVersion = typedQuestionnaire.current_version + 1
 
     // Create the version snapshot
-    const { data: version, error: vError } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: version, error: vError } = await (supabase as any)
       .from('approach_questionnaire_versions')
       .insert({
         approach_questionnaire_id: questionnaireId,
@@ -70,7 +72,8 @@ export async function publishQuestionnaireVersion(
     }
 
     // Update the questionnaire's current_version and reset has_draft_changes
-    const { error: updateError } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: updateError } = await (supabase as any)
       .from('approach_questionnaires')
       .update({
         current_version: nextVersion,
@@ -103,7 +106,8 @@ export async function getVersionHistory(
   try {
     const supabase = await createSSRClient()
 
-    const { data: versions, error } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: versions, error } = await (supabase as any)
       .from('approach_questionnaire_versions')
       .select('*')
       .eq('approach_questionnaire_id', questionnaireId)
@@ -134,7 +138,8 @@ export async function getVersionTranslations(
   try {
     const supabase = await createSSRClient()
 
-    const { data: translations, error } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: translations, error } = await (supabase as any)
       .from('approach_questionnaire_translations')
       .select('*')
       .eq('version_id', versionId)
@@ -182,7 +187,8 @@ export async function translateQuestionnaireVersion(
     }
 
     // Get the version
-    const { data: version, error: vError } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: version, error: vError } = await (supabase as any)
       .from('approach_questionnaire_versions')
       .select('*')
       .eq('id', versionId)
@@ -195,7 +201,8 @@ export async function translateQuestionnaireVersion(
     const typedVersion = version as ApproachQuestionnaireVersion
 
     // Check if translation already exists
-    const { data: existingTranslation } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: existingTranslation } = await (supabase as any)
       .from('approach_questionnaire_translations')
       .select('*')
       .eq('version_id', versionId)
@@ -219,7 +226,8 @@ export async function translateQuestionnaireVersion(
     )
 
     // Store the translation
-    const { data: translation, error: tError } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: translation, error: tError } = await (supabase as any)
       .from('approach_questionnaire_translations')
       .insert({
         version_id: versionId,
@@ -267,7 +275,8 @@ export async function markDraftChanged(
       }
     }
 
-    const { error } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
       .from('approach_questionnaires')
       .update({ has_draft_changes: true })
       .eq('id', questionnaireId)

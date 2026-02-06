@@ -15,14 +15,45 @@ export default function ResetPasswordPage() {
     const [success, setSuccess] = useState(false);
     const router = useRouter();
 
-    // Check if we have a valid recovery session
+    // Extract tokens from URL hash and establish session
     useEffect(() => {
-        const checkSession = async () => {
+        const handleAuthCallback = async () => {
             try {
-                const supabase = await createSPASassClient();
-                const { data: { user }, error } = await supabase.getSupabaseClient().auth.getUser();
+                // Get hash fragment from URL
+                const hashFragment = window.location.hash.substring(1);
+                if (!hashFragment) {
+                    setError(t('invalidOrExpiredLink'));
+                    return;
+                }
 
-                if (error || !user) {
+                // Parse hash parameters
+                const params = new URLSearchParams(hashFragment);
+                const accessToken = params.get('access_token');
+                const refreshToken = params.get('refresh_token');
+                const type = params.get('type');
+
+                // Check if we have the required tokens
+                if (!accessToken || !refreshToken) {
+                    setError(t('invalidOrExpiredLink'));
+                    return;
+                }
+
+                // Establish session with the tokens
+                const supabase = await createSPASassClient();
+                const { data, error: sessionError } = await supabase.getSupabaseClient().auth.setSession({
+                    access_token: accessToken,
+                    refresh_token: refreshToken,
+                });
+
+                if (sessionError || !data.session) {
+                    setError(t('invalidOrExpiredLink'));
+                    return;
+                }
+
+                // Verify the user is authenticated
+                const { data: { user }, error: userError } = await supabase.getSupabaseClient().auth.getUser();
+
+                if (userError || !user) {
                     setError(t('invalidOrExpiredLink'));
                 }
             } catch {
@@ -30,8 +61,8 @@ export default function ResetPasswordPage() {
             }
         };
 
-        checkSession();
-    }, []);
+        handleAuthCallback();
+    }, [t]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

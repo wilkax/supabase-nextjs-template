@@ -39,7 +39,7 @@ interface QuestionnaireSchema {
 }
 
 interface Answers {
-  [questionId: string]: number | string | string[] | undefined
+  [questionId: string]: number | string | number[] | string[] | undefined
 }
 
 interface Props {
@@ -101,14 +101,72 @@ export default function QuestionnaireResponseForm({
 
   useEffect(() => {
     if (existingResponse && existingResponse.answers) {
-      setAnswers(existingResponse.answers as unknown as Answers)
+      // Convert old text-based responses to index-based for backward compatibility
+      const rawAnswers = existingResponse.answers as unknown as Answers
+      const convertedAnswers: Answers = {}
+
+      Object.keys(rawAnswers).forEach(questionId => {
+        const value = rawAnswers[questionId]
+
+        // Find the question in the schema
+        let question: Question | null = null
+        for (const section of schema.sections) {
+          const found = section.questions.find(q => q.id === questionId)
+          if (found) {
+            question = found
+            break
+          }
+        }
+
+        if (!question) {
+          // Question not found in schema, keep as-is
+          convertedAnswers[questionId] = value
+          return
+        }
+
+        // Convert based on question type
+        if (question.type === 'single-choice' && typeof value === 'string' && question.options) {
+          // Old format: text string → convert to index
+          const index = question.options.indexOf(value)
+          convertedAnswers[questionId] = index >= 0 ? index : value // fallback to original if not found
+        } else if (question.type === 'multiple-choice' && Array.isArray(value) && question.options) {
+          // Old format: string[] → convert to number[]
+          const allStrings = value.every(v => typeof v === 'string')
+          if (allStrings) {
+            const indices = (value as string[]).map(text => {
+              const idx = question!.options!.indexOf(text)
+              return idx >= 0 ? idx : text // fallback to original if not found
+            }).filter(v => typeof v === 'number') as number[]
+            convertedAnswers[questionId] = indices.length > 0 ? indices : value
+          } else {
+            convertedAnswers[questionId] = value // already indices
+          }
+        } else if (question.type === 'ranking' && Array.isArray(value) && question.options) {
+          // Old format: string[] → convert to number[]
+          const allStrings = value.every(v => typeof v === 'string')
+          if (allStrings) {
+            const indices = (value as string[]).map(text => {
+              const idx = question!.options!.indexOf(text)
+              return idx >= 0 ? idx : -1
+            }).filter(v => v >= 0) as number[]
+            convertedAnswers[questionId] = indices.length > 0 ? indices : value
+          } else {
+            convertedAnswers[questionId] = value // already indices
+          }
+        } else {
+          // Scale, free-text, or already in correct format
+          convertedAnswers[questionId] = value
+        }
+      })
+
+      setAnswers(convertedAnswers)
       setHasStartedAnswering(true)
     }
     // If only one language available, skip language selection
     if (!hasMultipleLanguages) {
       setLanguageSelected(true)
     }
-  }, [existingResponse, hasMultipleLanguages])
+  }, [existingResponse, hasMultipleLanguages, schema])
 
 
 
@@ -135,7 +193,7 @@ export default function QuestionnaireResponseForm({
     }
   }
 
-  function handleAnswerChange(questionId: string, value: number | string | string[]) {
+  function handleAnswerChange(questionId: string, value: number | string | number[]) {
     setHasStartedAnswering(true)
     setAnswers(prev => ({
       ...prev,
@@ -144,23 +202,23 @@ export default function QuestionnaireResponseForm({
     scrollToNextQuestion(questionId)
   }
 
-  function handleMultipleChoiceChange(questionId: string, option: string, checked: boolean) {
+  function handleMultipleChoiceChange(questionId: string, optionIndex: number, checked: boolean) {
     setHasStartedAnswering(true)
     setAnswers(prev => {
-      const current = (prev[questionId] as string[]) || []
+      const current = (prev[questionId] as number[]) || []
       if (checked) {
-        return { ...prev, [questionId]: [...current, option] }
+        return { ...prev, [questionId]: [...current, optionIndex] }
       } else {
-        return { ...prev, [questionId]: current.filter(o => o !== option) }
+        return { ...prev, [questionId]: current.filter(idx => idx !== optionIndex) }
       }
     })
   }
 
-  function handleRankingChange(questionId: string, options: string[]) {
+  function handleRankingChange(questionId: string, indices: number[]) {
     setHasStartedAnswering(true)
     setAnswers(prev => ({
       ...prev,
-      [questionId]: options
+      [questionId]: indices
     }))
   }
 
@@ -341,7 +399,7 @@ export default function QuestionnaireResponseForm({
                       <label
                         key={idx}
                         className={`flex items-center gap-2 p-2 border rounded-md cursor-pointer transition-colors ${
-                          answers[question.id] === option
+                          answers[question.id] === idx
                             ? 'border-blue-500 bg-blue-50'
                             : 'border-gray-200 hover:border-gray-300'
                         }`}
@@ -349,9 +407,9 @@ export default function QuestionnaireResponseForm({
                         <input
                           type="radio"
                           name={question.id}
-                          value={option}
-                          checked={answers[question.id] === option}
-                          onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                          value={idx}
+                          checked={answers[question.id] === idx}
+                          onChange={() => handleAnswerChange(question.id, idx)}
                           className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500"
                         />
                         <span className="text-xs">{option}</span>
@@ -367,15 +425,15 @@ export default function QuestionnaireResponseForm({
                       <label
                         key={idx}
                         className={`flex items-center gap-2 p-2 border rounded-md cursor-pointer transition-colors ${
-                          (answers[question.id] as string[] || []).includes(option)
+                          (answers[question.id] as number[] || []).includes(idx)
                             ? 'border-blue-500 bg-blue-50'
                             : 'border-gray-200 hover:border-gray-300'
                         }`}
                       >
                         <input
                           type="checkbox"
-                          checked={(answers[question.id] as string[] || []).includes(option)}
-                          onChange={(e) => handleMultipleChoiceChange(question.id, option, e.target.checked)}
+                          checked={(answers[question.id] as number[] || []).includes(idx)}
+                          onChange={(e) => handleMultipleChoiceChange(question.id, idx, e.target.checked)}
                           className="h-3.5 w-3.5 text-blue-600 rounded focus:ring-blue-500"
                         />
                         <span className="text-xs">{option}</span>
@@ -390,48 +448,52 @@ export default function QuestionnaireResponseForm({
                     <p className="text-xs text-gray-500 mb-1">
                       Use arrows to reorder from most to least important
                     </p>
-                    {(answers[question.id] as string[] || question.options).map((option, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center gap-2 p-2 border border-gray-200 rounded-md bg-white"
-                      >
-                        <span className="text-xs font-medium text-gray-500 w-5">{idx + 1}.</span>
-                        <span className="text-xs flex-1">{option}</span>
-                        <div className="flex gap-0.5">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const current = (answers[question.id] as string[]) || [...question.options!]
-                              if (idx > 0) {
-                                const newOrder = [...current]
-                                ;[newOrder[idx - 1], newOrder[idx]] = [newOrder[idx], newOrder[idx - 1]]
-                                handleRankingChange(question.id, newOrder)
-                              }
-                            }}
-                            disabled={idx === 0}
-                            className="text-xs px-1.5 py-0.5 text-gray-600 hover:text-gray-900 disabled:opacity-30"
-                          >
-                            ↑
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const current = (answers[question.id] as string[]) || [...question.options!]
-                              const maxIdx = current.length - 1
-                              if (idx < maxIdx) {
-                                const newOrder = [...current]
-                                ;[newOrder[idx], newOrder[idx + 1]] = [newOrder[idx + 1], newOrder[idx]]
-                                handleRankingChange(question.id, newOrder)
-                              }
-                            }}
-                            disabled={idx === ((answers[question.id] as string[]) || question.options).length - 1}
-                            className="text-xs px-1.5 py-0.5 text-gray-600 hover:text-gray-900 disabled:opacity-30"
-                          >
-                            ↓
-                          </button>
+                    {(() => {
+                      // Get current ranking as indices, or default to [0, 1, 2, ...]
+                      const currentIndices = (answers[question.id] as number[]) ||
+                        question.options!.map((_, i) => i)
+
+                      return currentIndices.map((optionIdx, position) => (
+                        <div
+                          key={position}
+                          className="flex items-center gap-2 p-2 border border-gray-200 rounded-md bg-white"
+                        >
+                          <span className="text-xs font-medium text-gray-500 w-5">{position + 1}.</span>
+                          <span className="text-xs flex-1">{question.options![optionIdx]}</span>
+                          <div className="flex gap-0.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (position > 0) {
+                                  const newOrder = [...currentIndices]
+                                  ;[newOrder[position - 1], newOrder[position]] = [newOrder[position], newOrder[position - 1]]
+                                  handleRankingChange(question.id, newOrder)
+                                }
+                              }}
+                              disabled={position === 0}
+                              className="text-xs px-1.5 py-0.5 text-gray-600 hover:text-gray-900 disabled:opacity-30"
+                            >
+                              ↑
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const maxPosition = currentIndices.length - 1
+                                if (position < maxPosition) {
+                                  const newOrder = [...currentIndices]
+                                  ;[newOrder[position], newOrder[position + 1]] = [newOrder[position + 1], newOrder[position]]
+                                  handleRankingChange(question.id, newOrder)
+                                }
+                              }}
+                              disabled={position === currentIndices.length - 1}
+                              className="text-xs px-1.5 py-0.5 text-gray-600 hover:text-gray-900 disabled:opacity-30"
+                            >
+                              ↓
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    })()}
                   </div>
                 )}
 

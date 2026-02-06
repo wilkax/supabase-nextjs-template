@@ -794,8 +794,8 @@ export function AnalyticsDashboardClient({ organization, questionnaires, approac
                                 avgRank: questionData.averageRanks?.[option] || 0,
                                 count: questionData.rankCounts?.[option] || 0
                               }))
-                              .sort((a, b) => a.avgRank - b.avgRank)
-                              .map(({ option, avgRank, count }) => (
+                              .sort((a: { option: string; avgRank: number; count: number }, b: { option: string; avgRank: number; count: number }) => a.avgRank - b.avgRank)
+                              .map(({ option, avgRank, count }: { option: string; avgRank: number; count: number }) => (
                                 <div key={option} className="text-xs text-gray-600">
                                   <span className="font-medium">{option}:</span> {avgRank > 0 ? avgRank.toFixed(2) : 'N/A'} ({count} {t('rankings')})
                                 </div>
@@ -816,8 +816,8 @@ export function AnalyticsDashboardClient({ organization, questionnaires, approac
                                     option,
                                     avgRank: questionData.averageRanks?.[option] || 999
                                   }))
-                                  .sort((a, b) => a.avgRank - b.avgRank)
-                                  .map(({ option }) => option),
+                                  .sort((a: { option: string; avgRank: number }, b: { option: string; avgRank: number }) => a.avgRank - b.avgRank)
+                                  .map(({ option }: { option: string; avgRank: number }) => option),
                                 datasets: [
                                   {
                                     label: t('averageRank'),
@@ -826,8 +826,8 @@ export function AnalyticsDashboardClient({ organization, questionnaires, approac
                                         option,
                                         avgRank: questionData.averageRanks?.[option] || 999
                                       }))
-                                      .sort((a, b) => a.avgRank - b.avgRank)
-                                      .map(({ avgRank }) => avgRank === 999 ? 0 : avgRank),
+                                      .sort((a: { option: string; avgRank: number }, b: { option: string; avgRank: number }) => a.avgRank - b.avgRank)
+                                      .map(({ avgRank }: { option: string; avgRank: number }) => avgRank === 999 ? 0 : avgRank),
                                     backgroundColor: 'rgba(139, 92, 246, 0.5)',
                                     borderColor: 'rgb(139, 92, 246)',
                                     borderWidth: 1

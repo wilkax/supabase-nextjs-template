@@ -27,11 +27,22 @@ interface QuestionData {
     maxLabel: string;
   };
   responseCount: number;
-  average: number;
-  median: number;
-  min: number;
-  max: number;
-  distribution: Record<string, number>;
+  // Scale question properties
+  average?: number;
+  median?: number;
+  min?: number;
+  max?: number;
+  distribution?: Record<string, number>;
+  // Single-choice properties
+  options?: string[];
+  topAnswer?: string;
+  // Multiple-choice properties
+  totalSelections?: number;
+  // Ranking properties
+  averageRanks?: Record<string, number>;
+  rankCounts?: Record<string, number>;
+  // Free-text properties
+  responses?: string[];
 }
 
 export async function POST(
@@ -174,7 +185,7 @@ export async function POST(
           });
 
           // Distribution chart
-          if (Object.keys(questionData.distribution || {}).length > 0) {
+          if (questionData.distribution && Object.keys(questionData.distribution).length > 0) {
             const chartData = Object.entries(questionData.distribution)
               .sort(([a], [b]) => Number(a) - Number(b))
               .map(([value, count]) => ({
@@ -229,11 +240,11 @@ export async function POST(
           });
 
           // Distribution chart
-          if (Object.keys(questionData.distribution || {}).length > 0) {
+          if (questionData.distribution && Object.keys(questionData.distribution).length > 0) {
             const chartData = (questionData.options || Object.keys(questionData.distribution)).map((option: string) => ({
               name: option,
               labels: [option],
-              values: [questionData.distribution[option] || 0]
+              values: [questionData.distribution![option] || 0]
             }));
 
             slide.addChart(pptx.ChartType.bar, chartData, {
@@ -282,11 +293,11 @@ export async function POST(
           });
 
           // Distribution chart
-          if (Object.keys(questionData.distribution || {}).length > 0) {
+          if (questionData.distribution && Object.keys(questionData.distribution).length > 0) {
             const chartData = (questionData.options || Object.keys(questionData.distribution)).map((option: string) => ({
               name: option,
               labels: [option],
-              values: [questionData.distribution[option] || 0]
+              values: [questionData.distribution![option] || 0]
             }));
 
             slide.addChart(pptx.ChartType.bar, chartData, {
@@ -332,7 +343,7 @@ export async function POST(
             const sortedOptions = (questionData.options || [])
               .map((option: string) => ({
                 option,
-                avgRank: questionData.averageRanks[option] || 999
+                avgRank: questionData.averageRanks![option] || 999
               }))
               .sort((a: any, b: any) => a.avgRank - b.avgRank);
 

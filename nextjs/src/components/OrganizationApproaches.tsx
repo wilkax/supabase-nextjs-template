@@ -108,7 +108,7 @@ export default function OrganizationApproaches({ organizationId }: OrganizationA
     return (
       approach.name.toLowerCase().includes(query) ||
       approach.description?.toLowerCase().includes(query) ||
-      approach.category?.toLowerCase().includes(query)
+      (Array.isArray(approach.category) && approach.category.some(cat => cat.toLowerCase().includes(query)))
     )
   })
 
